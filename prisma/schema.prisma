@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppRole {
+  super_admin
+  clan_admin
+}
+
+enum ServerStatus {
+  active
+  peace
+  maintenance
+}
+
+enum ClanRole {
+  clan_leader
+  elder
+  master_protector
+  member
+}
+
+enum AllianceStatus {
+  active
+  inactive
+}
+
+enum AnnouncementIcon {
+  bell
+  war
+}
+
+enum EventCategory {
+  featured
+  weekly
+  special
+}
+
+enum EventRecurrence {
+  none
+  daily
+  weekly
+  as_announced
+}
+
+enum ContactKind {
+  office
+  channel
+}
+
+enum JoinApplicationStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum ProtectionType {
+  alliance
+  peace
+  server
+  custom
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  displayName  String    @map("display_name")
+  appRole      AppRole   @map("app_role")
+  clanId       String?   @map("clan_id")
+  memberId     String?   @unique @map("member_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  clan            Clan?           @relation(fields: [clanId], references: [id])
+  member          Member?         @relation(fields: [memberId], references: [id])
+  mediaUploaded   MediaAsset[]    @relation("MediaUploadedBy")
+  announcements   Announcement[]  @relation("AnnouncementCreatedBy")
+
+  @@map("users")
+}
+
+model Server {
+  id        String       @id @default(cuid())
+  name      String
+  region    String
+  status    ServerStatus @default(active)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  clans Clan[]
+
+  @@map("servers")
+}
+
+model Clan {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  name           String
+  serverId       String    @map("server_id")
+  emblemMediaId  String?   @map("emblem_media_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  server              Server              @relation(fields: [serverId], references: [id])
+  emblem              MediaAsset?         @relation("ClanEmblem", fields: [emblemMediaId], references: [id])
+  resources           ClanResources?
+  members             Member[]
+  users               User[]
+  allianceMemberships AllianceClan[]
+  ledAlliances        Alliance[]          @relation("AllianceLeader")
+  unattackables       ClanUnattackable[]  @relation("ClanHasUnattackables")
+  protectedBy         ClanUnattackable[]  @relation("ClanIsProtected")
+  events              Event[]
+  contacts            Contact[]
+  joinApplications    JoinApplication[]
+  announcements       Announcement[]
+
+  @@map("clans")
+}
+
+model ClanResources {
+  clanId             String   @id @map("clan_id")
+  clanFund           BigInt   @default(0) @map("clan_fund")
+  darksteel          BigInt   @default(0)
+  clanEnergy         BigInt   @default(0) @map("clan_energy")
+  energyCapacityPct  Int      @default(0) @map("energy_capacity_pct")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  clan Clan @relation(fields: [clanId], references: [id], onDelete: Cascade)
+
+  @@map("clan_resources")
+}
+
+model Member {
+  id         String    @id @default(cuid())
+  clanId     String    @map("clan_id")
+  name       String
+  role       ClanRole  @default(member)
+  powerScore BigInt    @map("power_score")
+  classId    String?   @map("class_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  clan Clan  @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  user User?
+
+  @@index([clanId, role])
+  @@index([clanId, name])
+  @@map("members")
+}
+
+model Alliance {
+  id           String         @id @default(cuid())
+  name         String
+  leaderClanId String         @map("leader_clan_id")
+  status       AllianceStatus @default(active)
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  leader Clan           @relation("AllianceLeader", fields: [leaderClanId], references: [id])
+  clans  AllianceClan[]
+
+  @@map("alliances")
+}
+
+model AllianceClan {
+  allianceId String   @map("alliance_id")
+  clanId     String   @map("clan_id")
+  joinedAt   DateTime @default(now()) @map("joined_at")
+
+  alliance Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  clan     Clan     @relation(fields: [clanId], references: [id], onDelete: Cascade)
+
+  @@id([allianceId, clanId])
+  @@map("alliance_clans")
+}
+
+model ClanUnattackable {
+  id               String          @id @default(cuid())
+  clanId           String          @map("clan_id")
+  protectedClanId  String          @map("protected_clan_id")
+  protectionType   ProtectionType? @map("protection_type")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  clan          Clan @relation("ClanHasUnattackables", fields: [clanId], references: [id], onDelete: Cascade)
+  protectedClan Clan @relation("ClanIsProtected", fields: [protectedClanId], references: [id], onDelete: Cascade)
+
+  @@unique([clanId, protectedClanId])
+  @@map("clan_unattackables")
+}
+
+model Announcement {
+  id        String           @id @default(cuid())
+  title     String
+  body      String
+  icon      AnnouncementIcon @default(bell)
+  clanId    String?          @map("clan_id")
+  createdBy String?          @map("created_by")
+  createdAt DateTime         @default(now()) @map("created_at")
+  deletedAt DateTime?        @map("deleted_at")
+
+  clan    Clan? @relation(fields: [clanId], references: [id])
+  creator User? @relation("AnnouncementCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("announcements")
+}
+
+model MediaAsset {
+  id         String   @id @default(cuid())
+  url        String
+  pathname   String
+  mimeType   String   @map("mime_type")
+  alt        String?
+  uploadedBy String?  @map("uploaded_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  uploader User?     @relation("MediaUploadedBy", fields: [uploadedBy], references: [id])
+  clans    Clan[]    @relation("ClanEmblem")
+  events   Event[]   @relation("EventIcon")
+  contacts Contact[] @relation("ContactIcon")
+
+  @@map("media_assets")
+}
+
+model Event {
+  id              String          @id @default(cuid())
+  clanId          String?         @map("clan_id")
+  category        EventCategory
+  title           String
+  subtitle        String?
+  iconMediaId     String?         @map("icon_media_id")
+  startsAt        DateTime?       @map("starts_at")
+  timezone        String          @default("Asia/Manila")
+  recurrence      EventRecurrence @default(none)
+  recurrenceNote  String?         @map("recurrence_note")
+  badge           String?
+  isMajor         Boolean         @default(false) @map("is_major")
+  sortOrder       Int             @default(0) @map("sort_order")
+  isPublished     Boolean         @default(true) @map("is_published")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  deletedAt       DateTime?       @map("deleted_at")
+
+  clan Clan?       @relation(fields: [clanId], references: [id])
+  icon MediaAsset? @relation("EventIcon", fields: [iconMediaId], references: [id])
+
+  @@index([category, sortOrder])
+  @@map("events")
+}
+
+model Contact {
+  id            String      @id @default(cuid())
+  kind          ContactKind
+  title         String
+  personName    String?     @map("person_name")
+  discordHandle String?     @map("discord_handle")
+  email         String?
+  description   String?
+  href          String?
+  iconMediaId   String?     @map("icon_media_id")
+  clanId        String?     @map("clan_id")
+  sortOrder     Int         @default(0) @map("sort_order")
+  isPublished   Boolean     @default(true) @map("is_published")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  deletedAt     DateTime?   @map("deleted_at")
+
+  clan Clan?       @relation(fields: [clanId], references: [id])
+  icon MediaAsset? @relation("ContactIcon", fields: [iconMediaId], references: [id])
+
+  @@index([kind, sortOrder])
+  @@map("contacts")
+}
+
+model JoinApplication {
+  id         String                @id @default(cuid())
+  ign        String
+  discord    String
+  email      String?
+  clanId     String                @map("clan_id")
+  powerScore BigInt                @map("power_score")
+  classId    String                @map("class_id")
+  timezone   String
+  hourStart  Int                   @map("hour_start")
+  hourEnd    Int                   @map("hour_end")
+  reason     String
+  status     JoinApplicationStatus @default(pending)
+  createdAt  DateTime              @default(now()) @map("created_at")
+  updatedAt  DateTime              @updatedAt @map("updated_at")
+
+  clan Clan @relation(fields: [clanId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("join_applications")
+}

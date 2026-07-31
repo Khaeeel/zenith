@@ -85,11 +85,14 @@ export default function Hero({ ready }: HeroProps) {
         {use3d ? (
           <Canvas
             camera={{ position: [0, 0.65, 6.2], fov: 40, near: 0.1, far: 120 }}
-            dpr={[1, 1.75]}
+            dpr={[1, 1.5]}
+            performance={{ min: 0.5 }}
             gl={{
-              antialias: true,
+              antialias: false,
               alpha: false,
               powerPreference: "high-performance",
+              stencil: false,
+              depth: true,
             }}
           >
             <Suspense fallback={null}>

@@ -17,7 +17,7 @@ function ArcEmblem() {
   const { pointer } = useThree();
 
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
+  texture.anisotropy = 4;
 
   useFrame(({ clock }) => {
     if (!group.current) return;
@@ -51,7 +51,7 @@ function ArcEmblem() {
   return (
     <group ref={group} position={[0, 1.2, 0]}>
       <mesh position={[0, 0, -0.04]}>
-        <circleGeometry args={[1.15, 48]} />
+        <circleGeometry args={[1.15, 32]} />
         <meshBasicMaterial
           color="#d4af37"
           transparent
@@ -74,22 +74,14 @@ function ArcEmblem() {
       </mesh>
 
       <mesh>
-        <torusGeometry args={[1.22, 0.035, 12, 80]} />
-        <meshStandardMaterial
+        <torusGeometry args={[1.22, 0.035, 8, 48]} />
+        <meshBasicMaterial
           color="#d4af37"
-          emissive="#d4af37"
-          emissiveIntensity={0.55}
-          metalness={0.9}
-          roughness={0.25}
+          transparent
+          opacity={0.95}
+          toneMapped={false}
         />
       </mesh>
-
-      <pointLight
-        color="#f0d060"
-        intensity={3}
-        distance={7}
-        position={[0, 0, 1.2]}
-      />
     </group>
   );
 }
@@ -106,22 +98,25 @@ function FortressCity() {
       h: number;
       d: number;
       tip: boolean;
+      glow: boolean;
     }[] = [];
-    for (let i = 0; i < 55; i++) {
-      const a = (i / 55) * Math.PI * 2;
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2;
       const r = 5.5 + (i % 7) * 1.1 + Math.sin(i * 3.1) * 0.8;
+      const h = 1.8 + (i % 9) * 0.85;
       list.push({
         x: Math.cos(a) * r,
         z: Math.sin(a) * r - 3,
         w: 0.35 + (i % 4) * 0.15,
-        h: 1.8 + (i % 9) * 0.85,
+        h,
         d: 0.35 + (i % 3) * 0.12,
-        tip: i % 2 === 0,
+        tip: i % 3 === 0,
+        glow: h > 3.5 && i % 2 === 0,
       });
     }
     // Inner keep cluster
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
       list.push({
         x: Math.cos(a) * 2.2,
         z: Math.sin(a) * 2.2 - 2,
@@ -129,6 +124,7 @@ function FortressCity() {
         h: 3.5 + (i % 3),
         d: 0.5,
         tip: true,
+        glow: i % 2 === 0,
       });
     }
     return list;
@@ -146,46 +142,41 @@ function FortressCity() {
   return (
     <group ref={group}>
       {/* Ground plane */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -2]} receiveShadow>
-        <circleGeometry args={[22, 64]} />
-        <meshStandardMaterial color="#090b10" roughness={1} metalness={0.05} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -2]}>
+        <circleGeometry args={[22, 32]} />
+        <meshBasicMaterial color="#090b10" />
       </mesh>
 
       {/* Curtain wall ring */}
       <mesh position={[0, 0.9, -2]}>
-        <cylinderGeometry args={[7.2, 7.5, 1.8, 48, 1, true]} />
-        <meshStandardMaterial
-          color="#151820"
-          side={THREE.DoubleSide}
-          roughness={0.95}
-          flatShading
-        />
+        <cylinderGeometry args={[7.2, 7.5, 1.8, 32, 1, true]} />
+        <meshBasicMaterial color="#151820" side={THREE.DoubleSide} />
       </mesh>
 
       {buildings.map((b, i) => (
         <group key={i} position={[b.x, b.h / 2, b.z]}>
-          <mesh castShadow>
+          <mesh>
             <boxGeometry args={[b.w, b.h, b.d]} />
-            <meshStandardMaterial
-              color={i % 3 === 0 ? "#1a1e28" : "#12151c"}
-              roughness={0.92}
-              flatShading
-            />
+            <meshBasicMaterial color={i % 3 === 0 ? "#1a1e28" : "#12151c"} />
           </mesh>
           {b.tip && (
             <mesh position={[0, b.h / 2 + 0.35, 0]}>
               <coneGeometry args={[b.w * 0.7, 0.7, 4]} />
-              <meshStandardMaterial color="#0c0e14" flatShading />
+              <meshBasicMaterial color="#0c0e14" />
             </mesh>
           )}
-          {/* Window glow */}
-          {b.h > 3 && (
-            <pointLight
-              position={[0, b.h * 0.15, b.d * 0.6]}
-              color="#d4af37"
-              intensity={0.35}
-              distance={2.5}
-            />
+          {/* Cheap window glow — emissive plane instead of pointLight */}
+          {b.glow && (
+            <mesh position={[0, b.h * 0.15, b.d * 0.51]}>
+              <planeGeometry args={[b.w * 0.45, 0.12]} />
+              <meshBasicMaterial
+                color="#d4af37"
+                transparent
+                opacity={0.55}
+                depthWrite={false}
+                toneMapped={false}
+              />
+            </mesh>
           )}
         </group>
       ))}
@@ -195,7 +186,7 @@ function FortressCity() {
         <group key={side} position={[side * 4.5, 2.5, 1]}>
           <mesh>
             <boxGeometry args={[0.06, 2.8, 0.8]} />
-            <meshStandardMaterial color="#0a0a0a" />
+            <meshBasicMaterial color="#0a0a0a" />
           </mesh>
           <mesh position={[0, 0.8, 0]}>
             <planeGeometry args={[0.55, 0.55]} />
@@ -217,15 +208,15 @@ function GodRays() {
     group.current.rotation.z = Math.sin(t * 0.15) * 0.08;
     group.current.children.forEach((c, i) => {
       const mat = (c as THREE.Mesh).material as THREE.MeshBasicMaterial;
-      mat.opacity = (0.04 + Math.sin(t * 0.8 + i) * 0.02) * (1 - p * 0.7);
+      mat.opacity = (0.045 + Math.sin(t * 0.8 + i) * 0.02) * (1 - p * 0.7);
     });
   });
 
   return (
     <group ref={group} position={[2, 6, -4]} rotation={[0.4, -0.3, 0.2]}>
-      {Array.from({ length: 7 }).map((_, i) => (
-        <mesh key={i} position={[(i - 3) * 0.55, 0, 0]} rotation={[0, 0, (i - 3) * 0.04]}>
-          <coneGeometry args={[0.8 + i * 0.05, 14, 3, 1, true]} />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <mesh key={i} position={[(i - 1.5) * 0.7, 0, 0]} rotation={[0, 0, (i - 1.5) * 0.05]}>
+          <coneGeometry args={[0.85 + i * 0.06, 14, 3, 1, true]} />
           <meshBasicMaterial
             color="#d4af37"
             transparent
@@ -266,7 +257,7 @@ function OrbitRings() {
     <group>
       {refs.map((r, i) => (
         <mesh key={i} ref={r} position={[0, 1.15, 0]}>
-          <ringGeometry args={[1.55 + i * 0.32, 1.6 + i * 0.32, 96]} />
+          <ringGeometry args={[1.55 + i * 0.32, 1.6 + i * 0.32, 48]} />
           <meshBasicMaterial
             color={i === 1 ? "#f0d060" : "#d4af37"}
             transparent
@@ -283,7 +274,12 @@ function OrbitRings() {
 
 function EmberStorm() {
   const points = useRef<THREE.Points>(null);
-  const count = 600;
+  const count = 180;
+  const velocities = useMemo(() => {
+    const v = new Float32Array(count);
+    for (let i = 0; i < count; i++) v[i] = 0.15 + (i % 5) * 0.05;
+    return v;
+  }, []);
   const positions = useMemo(() => {
     const a = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -297,20 +293,23 @@ function EmberStorm() {
   useFrame((_, delta) => {
     if (!points.current) return;
     const p = heroScroll.progress;
-    const speed = 0.4 + p * 22;
+    const dt = Math.min(delta, 0.05);
+    const rush = p > 0.2 ? 1 : 0.15;
+    const speed = (0.4 + p * 18) * rush * dt;
     const attr = points.current.geometry.attributes.position as THREE.BufferAttribute;
     const arr = attr.array as Float32Array;
     for (let i = 0; i < count; i++) {
-      arr[i * 3 + 2] += speed * delta * (p > 0.2 ? 1 : 0.15);
-      arr[i * 3 + 1] += delta * (0.2 + (i % 4) * 0.08);
-      if (arr[i * 3 + 2] > 5 || arr[i * 3 + 1] > 10) {
-        arr[i * 3 + 2] = -12 - Math.random() * 8;
-        arr[i * 3] = (Math.random() - 0.5) * 16;
-        arr[i * 3 + 1] = Math.random() * 6 - 1;
+      const i3 = i * 3;
+      arr[i3 + 2] += speed;
+      arr[i3 + 1] += velocities[i] * dt;
+      if (arr[i3 + 2] > 5 || arr[i3 + 1] > 10) {
+        arr[i3 + 2] = -12 - Math.random() * 8;
+        arr[i3] = (Math.random() - 0.5) * 16;
+        arr[i3 + 1] = Math.random() * 6 - 1;
       }
     }
     attr.needsUpdate = true;
-    (points.current.material as THREE.PointsMaterial).opacity = 0.35 + p * 0.55;
+    (points.current.material as THREE.PointsMaterial).opacity = 0.4 + p * 0.5;
   });
 
   return (
@@ -319,10 +318,10 @@ function EmberStorm() {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} count={count} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.05}
+        size={0.07}
         color="#f0d060"
         transparent
-        opacity={0.4}
+        opacity={0.45}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
         sizeAttenuation
@@ -335,6 +334,7 @@ function CinemaCamera() {
   const { camera } = useThree();
   const look = useRef(new THREE.Vector3(0, 1.0, 0));
   const target = useRef(new THREE.Vector3(0, 0.6, 6.2));
+  const lastFov = useRef(-1);
 
   useFrame(() => {
     const p = heroScroll.progress;
@@ -352,8 +352,12 @@ function CinemaCamera() {
       THREE.MathUtils.lerp(-0.5, -6, p),
     );
     cam.lookAt(look.current);
-    cam.fov = THREE.MathUtils.lerp(40, 52, p);
-    cam.updateProjectionMatrix();
+    const nextFov = THREE.MathUtils.lerp(40, 52, p);
+    if (Math.abs(nextFov - lastFov.current) > 0.05) {
+      cam.fov = nextFov;
+      cam.updateProjectionMatrix();
+      lastFov.current = nextFov;
+    }
   });
 
   return null;
@@ -364,10 +368,6 @@ export default function HeroScene() {
     <>
       <color attach="background" args={["#020205"]} />
       <fog attach="fog" args={["#020205", 8, 32]} />
-      <ambientLight intensity={0.25} color="#6a7080" />
-      <directionalLight position={[6, 12, 4]} intensity={1.1} color="#fff2d0" />
-      <directionalLight position={[-8, 4, -6]} intensity={0.35} color="#4050a0" />
-      <hemisphereLight args={["#2a3048", "#0a0806", 0.4]} />
       <CinemaCamera />
       <FortressCity />
       <GodRays />

@@ -4,6 +4,12 @@ import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 
 export async function loginAction(formData: FormData) {
+  if (!process.env.AUTH_SECRET) {
+    return {
+      error:
+        "Server misconfigured: AUTH_SECRET is missing. Set it on Vercel and redeploy.",
+    };
+  }
   try {
     await signIn("credentials", {
       email: String(formData.get("email") ?? ""),
@@ -15,7 +21,8 @@ export async function loginAction(formData: FormData) {
     if (e instanceof AuthError) {
       return { error: "Invalid email or password." };
     }
-    throw e;
+    console.error("[loginAction]", e);
+    return { error: "Sign-in failed. Check server auth configuration." };
   }
 }
 

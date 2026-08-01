@@ -20,14 +20,24 @@ export default function Hero({ ready }: HeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [use3d, setUse3d] = useState(true);
+  const [inView, setInView] = useState(true);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setUse3d(false);
     }
-    // Prefetch scene chunk as early as possible
-    void import("./three/HeroScene");
   }, []);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || !use3d) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { rootMargin: "15% 0px", threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [use3d]);
 
   useEffect(() => {
     if (!ready || !sectionRef.current) return;
@@ -35,7 +45,6 @@ export default function Hero({ ready }: HeroProps) {
 
     heroScroll.progress = 0;
 
-    // Defer pin setup one frame so it doesn't compete with the reveal paint
     let ctx: gsap.Context | null = null;
     const id = requestAnimationFrame(() => {
       if (!sectionRef.current) return;
@@ -43,9 +52,9 @@ export default function Hero({ ready }: HeroProps) {
         ScrollTrigger.create({
           trigger: sectionRef.current,
           start: "top top",
-          end: "+=125%",
+          end: "+=110%",
           pin: true,
-          scrub: 0.9,
+          scrub: 0.35,
           anticipatePin: 1,
           onUpdate: (self) => {
             heroScroll.progress = self.progress;
@@ -61,12 +70,12 @@ export default function Hero({ ready }: HeroProps) {
             { opacity: 1, y: 0 },
             {
               opacity: 0,
-              y: 40,
+              y: 32,
               ease: "none",
               scrollTrigger: {
                 trigger: sectionRef.current,
                 start: "top top",
-                end: "+=35%",
+                end: "+=30%",
                 scrub: true,
               },
             },
@@ -92,7 +101,8 @@ export default function Hero({ ready }: HeroProps) {
         {use3d ? (
           <Canvas
             camera={{ position: [0, 0.65, 6.2], fov: 40, near: 0.1, far: 80 }}
-            dpr={[1, 1.25]}
+            dpr={1}
+            frameloop={inView ? "always" : "never"}
             performance={{ min: 0.5, debounce: 200 }}
             gl={{
               antialias: false,
@@ -124,7 +134,7 @@ export default function Hero({ ready }: HeroProps) {
           className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 text-center"
           initial={{ opacity: 0, y: 24 }}
           animate={ready ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.55, delay: 0.02, ease: [0.22, 1, 0.36, 1] }}
         >
           <p className="font-display text-[10px] tracking-[0.5em] text-gold/80 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:text-xs">
             Chapter 01 · Origin · MIR4

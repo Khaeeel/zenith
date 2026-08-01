@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { CLANS } from "@/lib/clans";
+import { mapMount } from "@/lib/mapWorld";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -27,77 +28,91 @@ export default function ClanRunway({ ready = true }: { ready?: boolean }) {
 
     const track = trackRef.current;
     const amount = Math.max(0, track.scrollWidth - window.innerWidth);
-    // Short beat only — cards settle, brief line, then REALM
-    const bridge = Math.round(window.innerHeight * 0.28);
+    // Minimal bridge — castle WebGL should already be warming by now
+    const bridge = Math.round(window.innerHeight * 0.1);
+    let mapRequested = false;
 
-    const ctx = gsap.context(() => {
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top top",
-        end: () => `+=${amount + bridge}`,
-        pin: true,
-        scrub: 0.65,
-        invalidateOnRefresh: true,
-        anticipatePin: 1,
-        onUpdate: (self) => {
-          const total = amount + bridge;
-          const cardEnd = amount / total;
-          const p = self.progress;
+    // Prefetch JS chunk only — don't mount WebGL until cards are on screen
+    void import("@/components/three/MapWorld");
 
-          if (p <= cardEnd) {
-            const tp = cardEnd > 0 ? p / cardEnd : 1;
-            track.style.transform = `translate3d(${-amount * tp}px,0,0)`;
-            if (cardsWrapRef.current) {
-              const lift = smoothstep(tp, 0.92, 1);
-              // Keep cards readable — never fully invisible mid-runway
-              cardsWrapRef.current.style.opacity = String(1 - lift * 0.35);
-              cardsWrapRef.current.style.transform = `translateY(${-lift * 16}px)`;
-            }
-            if (headerRef.current) {
-              headerRef.current.style.opacity = String(
-                1 - smoothstep(tp, 0.9, 1) * 0.85,
-              );
-            }
-            if (sectionRef.current) {
-              sectionRef.current.style.setProperty(
-                "--runway-dusk",
-                String(smoothstep(tp, 0.9, 1) * 0.35),
-              );
-            }
-            if (outroRef.current) {
-              const a = smoothstep(tp, 0.9, 1);
-              outroRef.current.style.opacity = String(a);
-            }
-          } else {
-            track.style.transform = `translate3d(${-amount}px,0,0)`;
-            const bp = (p - cardEnd) / (1 - cardEnd);
-            if (cardsWrapRef.current) {
-              cardsWrapRef.current.style.opacity = String(
-                Math.max(0.2, 0.65 - bp * 0.45),
-              );
-            }
-            if (headerRef.current) {
-              headerRef.current.style.opacity = String(Math.max(0, 0.15 - bp * 0.15));
-            }
-            if (sectionRef.current) {
-              sectionRef.current.style.setProperty(
-                "--runway-dusk",
-                String(0.35 + bp * 0.25),
-              );
-            }
-            if (outroRef.current) {
-              outroRef.current.style.opacity = String(
-                Math.max(0, 1 - smoothstep(bp, 0.25, 0.85)),
-              );
-            }
-          }
-        },
-      });
-    }, sectionRef);
+    let ctx: gsap.Context | null = null;
+    const timer = window.setTimeout(() => {
+      ctx = gsap.context(() => {
+        ScrollTrigger.create({
+          trigger: sectionRef.current,
+          start: "top top",
+          end: () => `+=${amount + bridge}`,
+          pin: true,
+          scrub: 0.25,
+          invalidateOnRefresh: true,
+          anticipatePin: 1,
+          onUpdate: (self) => {
+            const total = amount + bridge;
+            const cardEnd = amount / total;
+            const p = self.progress;
 
-    requestAnimationFrame(() => ScrollTrigger.refresh());
+            // Start castle WebGL early in the cards scroll (not at the handoff)
+            if (!mapRequested && p > 0.08) {
+              mapRequested = true;
+              mapMount.request();
+            }
 
-    return () => ctx.revert();
+            if (p <= cardEnd) {
+              const tp = cardEnd > 0 ? p / cardEnd : 1;
+              track.style.transform = `translate3d(${-amount * tp}px,0,0)`;
+              if (cardsWrapRef.current) {
+                const lift = smoothstep(tp, 0.92, 1);
+                cardsWrapRef.current.style.opacity = String(1 - lift * 0.35);
+                cardsWrapRef.current.style.transform = `translateY(${-lift * 16}px)`;
+              }
+              if (headerRef.current) {
+                headerRef.current.style.opacity = String(
+                  1 - smoothstep(tp, 0.9, 1) * 0.85,
+                );
+              }
+              if (sectionRef.current) {
+                sectionRef.current.style.setProperty(
+                  "--runway-dusk",
+                  String(smoothstep(tp, 0.9, 1) * 0.35),
+                );
+              }
+              if (outroRef.current) {
+                outroRef.current.style.opacity = String(smoothstep(tp, 0.9, 1));
+              }
+            } else {
+              track.style.transform = `translate3d(${-amount}px,0,0)`;
+              const bp = (p - cardEnd) / (1 - cardEnd);
+              if (cardsWrapRef.current) {
+                cardsWrapRef.current.style.opacity = String(
+                  Math.max(0.2, 0.65 - bp * 0.45),
+                );
+              }
+              if (headerRef.current) {
+                headerRef.current.style.opacity = String(
+                  Math.max(0, 0.15 - bp * 0.15),
+                );
+              }
+              if (sectionRef.current) {
+                sectionRef.current.style.setProperty(
+                  "--runway-dusk",
+                  String(0.35 + bp * 0.25),
+                );
+              }
+              if (outroRef.current) {
+                outroRef.current.style.opacity = String(
+                  Math.max(0, 1 - smoothstep(bp, 0.25, 0.85)),
+                );
+              }
+            }
+          },
+        });
+      }, sectionRef);
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timer);
+      ctx?.revert();
+    };
   }, [ready]);
 
   return (
@@ -150,7 +165,7 @@ export default function ClanRunway({ ready = true }: { ready?: boolean }) {
             <article
               key={clan.id}
               data-magnetic
-              className="magnetic gold-border relative flex h-56 w-64 shrink-0 flex-col justify-between rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent p-6 backdrop-blur-sm sm:h-64 sm:w-72"
+              className="magnetic gold-border relative flex h-56 w-64 shrink-0 flex-col justify-between rounded-2xl bg-gradient-to-b from-[#121018]/95 to-[#0a0a0e]/90 p-6 sm:h-64 sm:w-72"
             >
               <div className="flex items-start justify-between">
                 <span className="font-display text-xs tabular-nums text-gold-dim">

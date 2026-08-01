@@ -1,7 +1,6 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { bicheonWorldHeight, terrainHeightAt } from "@/lib/mapWorld";
 
@@ -32,23 +31,19 @@ export function GlacialRiver() {
   const curve = useRiverCurve();
 
   const geo = useMemo(
-    () => new THREE.TubeGeometry(curve, 180, 0.95, 18, false),
+    () => new THREE.TubeGeometry(curve, 64, 0.95, 8, false),
     [curve],
   );
 
   const uniforms = useMemo(
     () => ({
-      uTime: { value: 0 },
+      uTime: { value: 0.4 },
       uDeep: { value: new THREE.Color("#1a6a72") },
       uShallow: { value: new THREE.Color("#5ec4bc") },
       uFoam: { value: new THREE.Color("#eef9f8") },
     }),
     [],
   );
-
-  useFrame(({ clock }) => {
-    if (mat.current) mat.current.uniforms.uTime.value = clock.getElapsedTime();
-  });
 
   return (
     <mesh geometry={geo} renderOrder={1}>

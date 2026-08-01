@@ -33,54 +33,57 @@ export default function ManifestoSection({ ready = true }: { ready?: boolean }) 
       return;
     }
 
-    const ctx = gsap.context(() => {
-      gsap.set([line1.current, line2.current, line3.current], {
-        opacity: 0,
-        y: 120,
-        rotateX: 40,
-      });
-      gsap.set(sub.current, { opacity: 0, y: 30 });
+    // Defer so hero pin + WebGL finish first during preloader warm
+    let ctx: gsap.Context | null = null;
+    const timer = window.setTimeout(() => {
+      if (!sectionRef.current) return;
+      ctx = gsap.context(() => {
+        gsap.set([line1.current, line2.current, line3.current], {
+          opacity: 0,
+          y: 120,
+          rotateX: 40,
+        });
+        gsap.set(sub.current, { opacity: 0, y: 30 });
 
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top top",
-          end: "+=90%",
-          pin: true,
-          scrub: 0.75,
-          anticipatePin: 1,
-          invalidateOnRefresh: true,
-        },
-      });
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "+=90%",
+            pin: true,
+            scrub: 0.3,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+          },
+        });
 
-      tl.to(
-        line1.current,
-        { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
-        0,
-      )
-        .to(
-          line2.current,
+        tl.to(
+          line1.current,
           { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
-          0.12,
+          0,
         )
-        .to(
-          line3.current,
-          { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
-          0.24,
-        )
-        .to(
-          sub.current,
-          { opacity: 1, y: 0, ease: "none", duration: 0.3 },
-          0.4,
-        )
-        // Hold readable content through the rest of the pin
-        .to({}, { duration: 0.45 });
-    }, sectionRef);
-
-    ScrollTrigger.refresh();
+          .to(
+            line2.current,
+            { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
+            0.12,
+          )
+          .to(
+            line3.current,
+            { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
+            0.24,
+          )
+          .to(
+            sub.current,
+            { opacity: 1, y: 0, ease: "none", duration: 0.3 },
+            0.4,
+          )
+          .to({}, { duration: 0.45 });
+      }, sectionRef);
+    }, 120);
 
     return () => {
-      ctx.revert();
+      window.clearTimeout(timer);
+      ctx?.revert();
       gsap.set(lines, { clearProps: "opacity,transform" });
     };
   }, [ready]);

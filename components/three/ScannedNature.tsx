@@ -25,17 +25,17 @@ type RockSrc = {
 const ROCK_SOURCES: RockSrc[] = [
   {
     url: "/models/rocks/rock_07/rock_07_1k.gltf",
-    count: 55,
+    count: 28,
     scale: [2.8, 5.5],
   },
   {
     url: "/models/rocks/rock_09/rock_09_1k.gltf",
-    count: 70,
+    count: 32,
     scale: [3.5, 7],
   },
   {
     url: "/models/rocks/rock_moss/rock_moss_set_01_1k.gltf",
-    count: 40,
+    count: 20,
     scale: [1.8, 4.2],
   },
 ];
@@ -152,9 +152,7 @@ function RockInstances({
             refs.current[mi] = el;
           }}
           args={[mesh.geometry, mesh.material, count]}
-          castShadow
-          receiveShadow
-          frustumCulled={false}
+          frustumCulled
         />
       ))}
     </group>
@@ -274,7 +272,6 @@ export function PhotorealPineBillboards({ count = 360 }: { count?: number }) {
       <instancedMesh
         ref={a}
         args={[undefined, undefined, count]}
-        castShadow
         material={material}
       >
         <planeGeometry args={[1, 1]} />
@@ -282,7 +279,6 @@ export function PhotorealPineBillboards({ count = 360 }: { count?: number }) {
       <instancedMesh
         ref={b}
         args={[undefined, undefined, count]}
-        castShadow
         material={material}
       >
         <planeGeometry args={[1, 1]} />

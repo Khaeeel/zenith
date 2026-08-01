@@ -33,7 +33,16 @@ declare module "@auth/core/jwt" {
   }
 }
 
+/**
+ * Auth.js on Vercel:
+ * - AUTH_SECRET is required (openssl rand -base64 32)
+ * - Prefer AUTH_TRUST_HOST=true and omit AUTH_URL on Vercel,
+ *   OR set AUTH_URL to the exact production origin (no path, no quotes)
+ * - trustHost: true so reverse-proxy hosts are accepted
+ */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET,
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
@@ -98,5 +107,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-  trustHost: true,
 });

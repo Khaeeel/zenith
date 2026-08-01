@@ -29,28 +29,30 @@ export default function HomePage() {
   const [ready, setReady] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Mount GSAP/WebGL under the preloader so the lift-off isn't a 2–3s hitch
+  const handleWarm = useCallback(() => {
+    setReady(true);
+  }, []);
+
   const handlePreloaderComplete = useCallback(() => {
     window.scrollTo(0, 0);
     setReady(true);
-    const refresh = () => {
-      void import("gsap/ScrollTrigger").then(({ ScrollTrigger }) => {
-        ScrollTrigger.refresh();
-        (
-          window as unknown as { __lenis?: { resize: () => void } }
-        ).__lenis?.resize();
-      });
-    };
-    // Refresh after pin spacers settle so chapters below stay reachable
+    // Light sync only — pins should already be created during warm
     requestAnimationFrame(() => {
-      window.setTimeout(refresh, 120);
-      window.setTimeout(refresh, 600);
-      window.setTimeout(refresh, 1400);
+      window.setTimeout(() => {
+        void import("gsap/ScrollTrigger").then(({ ScrollTrigger }) => {
+          ScrollTrigger.refresh();
+          (
+            window as unknown as { __lenis?: { resize: () => void } }
+          ).__lenis?.resize();
+        });
+      }, 80);
     });
   }, []);
 
   return (
     <main className="relative bg-obsidian">
-      <Preloader onComplete={handlePreloaderComplete} />
+      <Preloader onWarm={handleWarm} onComplete={handlePreloaderComplete} />
       <CustomCursor />
       <ScrollHud ready={ready} />
       <FilmGrain />

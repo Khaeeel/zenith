@@ -16,18 +16,24 @@ function LoginForm() {
     setError("");
     const fd = new FormData(e.currentTarget);
     startTransition(async () => {
-      const res = await loginAction(fd);
-      if (res?.error) {
-        setError(res.error);
-        return;
+      try {
+        const res = await loginAction(fd);
+        if (res?.error) {
+          setError(res.error);
+          return;
+        }
+        const callback = params.get("callbackUrl");
+        const next =
+          callback && callback.startsWith("/") && !callback.startsWith("//")
+            ? callback
+            : "/dashboard";
+        router.push(next);
+        router.refresh();
+      } catch {
+        setError(
+          "Sign-in failed. If this persists, AUTH_SECRET may be missing on the server.",
+        );
       }
-      const callback = params.get("callbackUrl");
-      const next =
-        callback && callback.startsWith("/") && !callback.startsWith("//")
-          ? callback
-          : "/dashboard";
-      router.push(next);
-      router.refresh();
     });
   }
 
@@ -67,6 +73,16 @@ function LoginForm() {
         {pending ? "Signing in…" : "Enter Command Hub"}
       </button>
     </form>
+  );
+}
+
+function LoginFormFallback() {
+  return (
+    <div className="space-y-4" aria-hidden>
+      <div className="h-16 rounded bg-white/5" />
+      <div className="h-16 rounded bg-white/5" />
+      <div className="h-12 rounded bg-white/10" />
+    </div>
   );
 }
 
@@ -111,7 +127,7 @@ export default function LoginPage() {
 
         <div className="hub-frame hub-frame-ornate p-6 sm:p-8">
           <span className="hub-ornament-bottom" aria-hidden />
-          <Suspense>
+          <Suspense fallback={<LoginFormFallback />}>
             <LoginForm />
           </Suspense>
         </div>

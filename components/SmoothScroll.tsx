@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 /**
  * Lenis only on the cinematic homepage — dashboard/admin use native scroll.
- * GSAP/ScrollTrigger are loaded only when Lenis is active (avoids nav jank).
+ * Tuned for responsive feel (short duration) and cheap resize handling.
  */
 export default function SmoothScroll({
   children,
@@ -43,9 +43,11 @@ export default function SmoothScroll({
       gsap.registerPlugin(ScrollTrigger);
 
       const lenis = new Lenis({
-        duration: 1.05,
+        // Shorter = less “draggy” scroll lag
+        duration: 0.55,
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-        touchMultiplier: 1.5,
+        touchMultiplier: 1.35,
+        smoothWheel: true,
         autoRaf: false,
       });
 
@@ -64,20 +66,23 @@ export default function SmoothScroll({
         lenis.raf(time * 1000);
       };
       gsap.ticker.add(ticker);
-      gsap.ticker.lagSmoothing(0);
+      gsap.ticker.lagSmoothing(500, 33);
 
+      let resizeTimer = 0;
       const onResize = () => {
-        lenis.resize();
-        ScrollTrigger.refresh();
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => {
+          lenis.resize();
+          ScrollTrigger.refresh();
+        }, 150);
       };
       window.addEventListener("resize", onResize);
 
-      const t1 = window.setTimeout(syncLimit, 500);
-      const t2 = window.setTimeout(syncLimit, 1400);
+      const t1 = window.setTimeout(syncLimit, 400);
 
       cleanup = () => {
         window.clearTimeout(t1);
-        window.clearTimeout(t2);
+        window.clearTimeout(resizeTimer);
         window.removeEventListener("resize", onResize);
         ScrollTrigger.removeEventListener("refresh", syncLimit);
         gsap.ticker.remove(ticker);

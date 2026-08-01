@@ -112,8 +112,8 @@ function FortressCity() {
       tip: boolean;
       glow: boolean;
     }[] = [];
-    for (let i = 0; i < 36; i++) {
-      const a = (i / 36) * Math.PI * 2;
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2;
       const r = 5.5 + (i % 7) * 1.1 + Math.sin(i * 3.1) * 0.8;
       const h = 1.8 + (i % 9) * 0.85;
       list.push({
@@ -286,7 +286,7 @@ function OrbitRings() {
 
 function EmberStorm() {
   const points = useRef<THREE.Points>(null);
-  const count = 120;
+  const count = 48;
   const velocities = useMemo(() => {
     const v = new Float32Array(count);
     for (let i = 0; i < count; i++) v[i] = 0.15 + (i % 5) * 0.05;

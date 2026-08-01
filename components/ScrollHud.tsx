@@ -1,10 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { gsap } from "gsap";
-
-gsap.registerPlugin(ScrollTrigger);
+import { useEffect, useRef, useState } from "react";
 
 const CHAPTERS = [
   { id: "hero", label: "ORIGIN", num: "01" },
@@ -23,48 +19,60 @@ function measureTop(id: string): number | null {
   return spacer.getBoundingClientRect().top;
 }
 
-/** Cinematic scroll HUD — progress + chapter ticks. */
+/** Cinematic scroll HUD — progress + chapter ticks (rAF-throttled). */
 export default function ScrollHud({ ready }: { ready: boolean }) {
   const [progress, setProgress] = useState(0);
   const [chapter, setChapter] = useState(0);
+  const pending = useRef(false);
+  const last = useRef({ progress: 0, chapter: 0 });
 
   useEffect(() => {
     if (!ready) return;
 
-    const onScroll = () => {
+    const measure = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const y =
         (window as unknown as { __lenis?: { scroll: number } }).__lenis
           ?.scroll ?? window.scrollY;
-      const p = max > 0 ? y / max : 0;
-      setProgress(Math.min(1, Math.max(0, p)));
+      const p = max > 0 ? Math.min(1, Math.max(0, y / max)) : 0;
 
       let active = 0;
       const threshold = window.innerHeight * 0.42;
-      CHAPTERS.forEach((c, i) => {
-        const top = measureTop(c.id);
-        if (top === null) return;
-        if (top < threshold) active = i;
-      });
-      setChapter(active);
+      for (let i = 0; i < CHAPTERS.length; i++) {
+        const top = measureTop(CHAPTERS[i].id);
+        if (top !== null && top < threshold) active = i;
+      }
+
+      if (Math.abs(last.current.progress - p) > 0.004) {
+        last.current.progress = p;
+        setProgress(p);
+      }
+      if (last.current.chapter !== active) {
+        last.current.chapter = active;
+        setChapter(active);
+      }
     };
 
-    onScroll();
+    const onScroll = () => {
+      if (pending.current) return;
+      pending.current = true;
+      requestAnimationFrame(() => {
+        pending.current = false;
+        measure();
+      });
+    };
+
+    measure();
     window.addEventListener("scroll", onScroll, { passive: true });
     const lenis = (
       window as unknown as { __lenis?: { on: Function; off: Function } }
     ).__lenis;
     lenis?.on?.("scroll", onScroll);
-    const onRefresh = () => onScroll();
-    ScrollTrigger.addEventListener("refresh", onRefresh);
-    const t1 = window.setTimeout(onScroll, 700);
-    const t2 = window.setTimeout(onScroll, 1800);
+    const t1 = window.setTimeout(measure, 500);
     return () => {
       window.removeEventListener("scroll", onScroll);
       lenis?.off?.("scroll", onScroll);
-      ScrollTrigger.removeEventListener("refresh", onRefresh);
       window.clearTimeout(t1);
-      window.clearTimeout(t2);
     };
   }, [ready]);
 
@@ -78,50 +86,27 @@ export default function ScrollHud({ ready }: { ready: boolean }) {
       aria-hidden
     >
       <p className="font-display text-[11px] tabular-nums tracking-[0.35em] text-gold-bright">
-        {String(Math.round(progress * 100)).padStart(3, "0")}
+        {current.num}
       </p>
-
-      <div className="flex flex-col items-end gap-2.5 py-1">
-        {CHAPTERS.map((c, i) => {
-          const active = i === chapter;
-          const passed = i < chapter;
-          return (
-            <div key={c.id} className="flex items-center gap-2">
-              <span
-                className={`font-display text-[8px] tracking-[0.25em] uppercase transition-colors duration-300 ${
-                  active
-                    ? "text-gold-bright opacity-100"
-                    : passed
-                      ? "text-gold-dim opacity-50"
-                      : "text-gold-dim opacity-25"
-                }`}
-              >
-                {active ? c.label : c.num}
-              </span>
-              <span
-                className={`block rounded-full transition-[background-color,box-shadow,width,height] duration-300 ${
-                  active
-                    ? "h-2 w-2 bg-gold-bright shadow-[0_0_10px_rgba(240,208,96,0.7)]"
-                    : passed
-                      ? "h-1 w-1 bg-gold-dim"
-                      : "h-1 w-1 bg-white/20"
-                }`}
-              />
-            </div>
-          );
-        })}
-      </div>
-
+      <p className="font-display text-[9px] tracking-[0.3em] text-gold/70">
+        {current.label}
+      </p>
       <div className="relative mt-1 h-24 w-[2px] overflow-hidden rounded-full bg-white/10">
         <div
-          className="absolute top-0 left-0 w-full origin-top bg-gradient-to-b from-gold-bright via-gold to-gold-dim transition-[height] duration-150"
+          className="absolute top-0 left-0 w-full bg-gradient-to-b from-gold-bright to-gold-dim"
           style={{ height: `${progress * 100}%` }}
         />
       </div>
-
-      <p className="font-display text-[9px] tracking-[0.32em] text-gold/75">
-        {current?.num} {current?.label}
-      </p>
+      <div className="mt-1 flex flex-col gap-1.5">
+        {CHAPTERS.map((c, i) => (
+          <span
+            key={c.id}
+            className={`block h-1 w-1 rounded-full ${
+              i === chapter ? "bg-gold-bright" : "bg-white/25"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

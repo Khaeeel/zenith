@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Agency-style gold cursor — trailing ring + magnetic pull on interactive targets.
- * Inspired by Lusion / award-site magnetic cursor patterns.
+ * Agency-style gold cursor — trailing ring + magnetic pull.
+ * Avoids document-wide querySelectorAll on every mousemove.
  */
 export default function CustomCursor() {
   const dot = useRef<HTMLDivElement>(null);
@@ -13,7 +13,7 @@ export default function CustomCursor() {
   const pos = useRef({ x: 0, y: 0 });
   const ringPos = useRef({ x: 0, y: 0 });
   const hovering = useRef(false);
-  const magnetic = useRef({ x: 0, y: 0, active: false });
+  const magEl = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const fine = window.matchMedia("(pointer: fine)").matches;
@@ -21,6 +21,13 @@ export default function CustomCursor() {
     if (!fine || reduced) return;
     setEnabled(true);
     document.documentElement.classList.add("arc-cursor");
+
+    const clearMag = () => {
+      if (magEl.current) {
+        magEl.current.style.transform = "";
+        magEl.current = null;
+      }
+    };
 
     const onMove = (e: MouseEvent) => {
       pos.current.x = e.clientX;
@@ -32,44 +39,39 @@ export default function CustomCursor() {
 
       if (target) {
         hovering.current = true;
+        if (magEl.current && magEl.current !== target) {
+          magEl.current.style.transform = "";
+        }
+        magEl.current = target;
         const r = target.getBoundingClientRect();
         const cx = r.left + r.width / 2;
         const cy = r.top + r.height / 2;
-        const strength = 0.28;
-        magnetic.current = {
-          x: (e.clientX - cx) * strength,
-          y: (e.clientY - cy) * strength,
-          active: true,
-        };
-        target.style.transform = `translate(${magnetic.current.x}px, ${magnetic.current.y}px)`;
-        target.dataset.mag = "1";
+        const strength = 0.22;
+        target.style.transform = `translate3d(${(e.clientX - cx) * strength}px, ${(e.clientY - cy) * strength}px, 0)`;
       } else {
         hovering.current = false;
-        magnetic.current.active = false;
-        document.querySelectorAll<HTMLElement>("[data-mag='1']").forEach((el) => {
-          el.style.transform = "";
-          delete el.dataset.mag;
-        });
+        clearMag();
       }
     };
 
     const onLeave = () => {
       if (dot.current) dot.current.style.opacity = "0";
       if (ring.current) ring.current.style.opacity = "0";
+      clearMag();
     };
     const onEnter = () => {
       if (dot.current) dot.current.style.opacity = "1";
       if (ring.current) ring.current.style.opacity = "1";
     };
 
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("mouseleave", onLeave);
     document.addEventListener("mouseenter", onEnter);
 
     let raf = 0;
     const tick = () => {
-      ringPos.current.x += (pos.current.x - ringPos.current.x) * 0.14;
-      ringPos.current.y += (pos.current.y - ringPos.current.y) * 0.14;
+      ringPos.current.x += (pos.current.x - ringPos.current.x) * 0.18;
+      ringPos.current.y += (pos.current.y - ringPos.current.y) * 0.18;
 
       if (dot.current) {
         const s = hovering.current ? 0.5 : 1;
@@ -95,9 +97,7 @@ export default function CustomCursor() {
       document.removeEventListener("mouseleave", onLeave);
       document.removeEventListener("mouseenter", onEnter);
       document.documentElement.classList.remove("arc-cursor");
-      document.querySelectorAll<HTMLElement>("[data-mag='1']").forEach((el) => {
-        el.style.transform = "";
-      });
+      clearMag();
     };
   }, []);
 
@@ -107,14 +107,14 @@ export default function CustomCursor() {
     <>
       <div
         ref={ring}
-        className="pointer-events-none fixed top-0 left-0 z-[200] h-10 w-10 rounded-full border border-gold/55 mix-blend-difference transition-[border-color] duration-200"
-        style={{ opacity: 0 }}
+        className="pointer-events-none fixed top-0 left-0 z-[200] h-10 w-10 rounded-full border border-gold/55 mix-blend-difference"
+        style={{ opacity: 0, willChange: "transform" }}
         aria-hidden
       />
       <div
         ref={dot}
-        className="pointer-events-none fixed top-0 left-0 z-[201] h-1.5 w-1.5 rounded-full bg-gold-bright shadow-[0_0_12px_rgba(240,208,96,0.8)] transition-[scale] duration-200"
-        style={{ opacity: 0 }}
+        className="pointer-events-none fixed top-0 left-0 z-[201] h-1.5 w-1.5 rounded-full bg-gold-bright shadow-[0_0_12px_rgba(240,208,96,0.8)]"
+        style={{ opacity: 0, willChange: "transform" }}
         aria-hidden
       />
     </>

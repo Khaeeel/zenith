@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import dynamic from "next/dynamic";
-import { mapScroll } from "@/lib/mapWorld";
+import { mapMount, mapScroll } from "@/lib/mapWorld";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -19,6 +19,9 @@ export default function MapSection({ ready = true }: { ready?: boolean }) {
   const [use3d, setUse3d] = useState(true);
   const [titleOpacity, setTitleOpacity] = useState(0);
   const [worldReady, setWorldReady] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [mountWorld, setMountWorld] = useState(false);
+  const [warming, setWarming] = useState(false);
 
   useEffect(() => {
     const prefersReduced = window.matchMedia(
@@ -32,18 +35,64 @@ export default function MapSection({ ready = true }: { ready?: boolean }) {
     }
   }, []);
 
+  // Prefetch chunk as soon as homepage is ready
+  useEffect(() => {
+    if (!ready || !use3d) return;
+    void import("./three/MapWorld");
+  }, [ready, use3d]);
+
+  // Boot WebGL while still on clan cards (not at the pin handoff)
+  useEffect(() => {
+    if (!use3d) return;
+    return mapMount.subscribe(() => setMountWorld(true));
+  }, [use3d]);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || !use3d) return;
+
+    const runway = document.getElementById("runway");
+    const ioMap = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { rootMargin: "10% 0px", threshold: 0 },
+    );
+    ioMap.observe(el);
+
+    // Also start mount when runway chapter is on screen
+    let ioRunway: IntersectionObserver | null = null;
+    if (runway) {
+      ioRunway = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) mapMount.request();
+        },
+        { threshold: 0.05 },
+      );
+      ioRunway.observe(runway);
+    }
+
+    return () => {
+      ioMap.disconnect();
+      ioRunway?.disconnect();
+    };
+  }, [use3d]);
+
+  // Compile shaders under the cards, then idle until the map is visible
+  useEffect(() => {
+    if (!mountWorld) return;
+    setWarming(true);
+    const t = window.setTimeout(() => setWarming(false), 1000);
+    return () => window.clearTimeout(t);
+  }, [mountWorld]);
+
   useEffect(() => {
     if (!ready) return;
-    // Failsafe — never leave the sky hold covering the WebGL scene
-    const t = window.setTimeout(() => setWorldReady(true), 1200);
+    const t = window.setTimeout(() => setWorldReady(true), 1600);
     return () => window.clearTimeout(t);
   }, [ready]);
 
-  // R3F often mounts at the default 300×150 before the pinned section has size —
-  // keep the drawing buffer matched to the host.
   useEffect(() => {
     const host = canvasHostRef.current;
-    if (!host || !use3d) return;
+    if (!host || !use3d || !mountWorld) return;
 
     const sync = () => {
       const w = Math.max(1, host.clientWidth || window.innerWidth);
@@ -61,7 +110,7 @@ export default function MapSection({ ready = true }: { ready?: boolean }) {
       window.clearTimeout(t);
       window.removeEventListener("resize", sync);
     };
-  }, [use3d, ready]);
+  }, [use3d, ready, mountWorld]);
 
   useEffect(() => {
     if (!ready || !sectionRef.current) return;
@@ -72,57 +121,60 @@ export default function MapSection({ ready = true }: { ready?: boolean }) {
     if (prefersReduced) return;
 
     const el = sectionRef.current;
-    const ctx = gsap.context(() => {
-      ScrollTrigger.create({
-        trigger: el,
-        start: "top top",
-        end: "+=210%",
-        pin: true,
-        scrub: 0.9,
-        anticipatePin: 1,
-        refreshPriority: -2,
-        invalidateOnRefresh: true,
-        onToggle: (self) => {
-          el.style.zIndex = self.isActive ? "20" : "1";
-          if (!self.isActive) {
-            gsap.set(el, { clearProps: "position,top,left,width" });
-          }
-          // Pinning changes layout — force WebGL buffer resync
-          const host = canvasHostRef.current;
-          if (host && setSizeRef.current) {
-            setSizeRef.current(
-              Math.max(1, host.clientWidth || window.innerWidth),
-              Math.max(1, host.clientHeight || window.innerHeight),
+    let ctx: gsap.Context | null = null;
+    const setupTimer = window.setTimeout(() => {
+      ctx = gsap.context(() => {
+        ScrollTrigger.create({
+          trigger: el,
+          start: "top top",
+          end: "+=160%",
+          pin: true,
+          scrub: true,
+          anticipatePin: 1,
+          refreshPriority: -2,
+          invalidateOnRefresh: true,
+          onToggle: (self) => {
+            el.style.zIndex = self.isActive ? "20" : "1";
+            if (!self.isActive) {
+              gsap.set(el, { clearProps: "position,top,left,width" });
+            }
+            const host = canvasHostRef.current;
+            if (host && setSizeRef.current) {
+              setSizeRef.current(
+                Math.max(1, host.clientWidth || window.innerWidth),
+                Math.max(1, host.clientHeight || window.innerHeight),
+              );
+            }
+          },
+          onUpdate: (self) => {
+            mapScroll.progress = self.progress;
+            mapScroll.markersVisible = self.progress > 0.15;
+            let nextTitle = 1;
+            if (self.progress < 0.1) nextTitle = self.progress / 0.1;
+            else if (self.progress > 0.82) {
+              nextTitle = Math.max(0, 1 - (self.progress - 0.82) / 0.18);
+            }
+            setTitleOpacity((prev) =>
+              Math.abs(prev - nextTitle) > 0.02 ? nextTitle : prev,
             );
-          }
-        },
-        onUpdate: (self) => {
-          mapScroll.progress = self.progress;
-          mapScroll.markersVisible = self.progress > 0.15;
-          if (self.progress < 0.1) {
-            setTitleOpacity(self.progress / 0.1);
-          } else if (self.progress > 0.82) {
-            setTitleOpacity(Math.max(0, 1 - (self.progress - 0.82) / 0.18));
-          } else {
-            setTitleOpacity(1);
-          }
-          const night = Math.max(0, (self.progress - 0.78) / 0.22);
-          el.style.setProperty("--map-night", String(night));
-          el.style.setProperty("--map-entry", "0");
-        },
-        onLeaveBack: () => {
-          gsap.set(el, { clearProps: "position,top,left,width,zIndex" });
-        },
-      });
-    }, sectionRef);
-
-    const refresh = window.setTimeout(() => ScrollTrigger.refresh(), 400);
+            const night = Math.max(0, (self.progress - 0.78) / 0.22);
+            el.style.setProperty("--map-night", String(night));
+            el.style.setProperty("--map-entry", "0");
+          },
+          onLeaveBack: () => {
+            gsap.set(el, { clearProps: "position,top,left,width,zIndex" });
+          },
+        });
+      }, sectionRef);
+    }, 320);
 
     return () => {
-      window.clearTimeout(refresh);
-      ctx.revert();
+      window.clearTimeout(setupTimer);
+      ctx?.revert();
     };
   }, [ready]);
+
+  const runLoop = inView || warming;
 
   return (
     <section
@@ -148,39 +200,41 @@ export default function MapSection({ ready = true }: { ready?: boolean }) {
           className="absolute inset-0"
           style={{ width: "100%", height: "100%" }}
         >
-          <Canvas
-            style={{ width: "100%", height: "100%", display: "block" }}
-            resize={{ scroll: false, debounce: 0, offsetSize: true }}
-            shadows
-            dpr={[1, 1.75]}
-            camera={{ position: [-4, 18, 22], fov: 48, near: 0.1, far: 200 }}
-            gl={{
-              antialias: true,
-              powerPreference: "high-performance",
-              alpha: false,
-              preserveDrawingBuffer: true,
-            }}
-            onCreated={({ gl, setSize }) => {
-              gl.setClearColor("#050508", 1);
-              gl.toneMapping = THREE.ACESFilmicToneMapping;
-              gl.toneMappingExposure = 1.25;
-              gl.shadowMap.enabled = true;
-              setSizeRef.current = setSize;
-              const host = canvasHostRef.current;
-              const w = Math.max(
-                1,
-                host?.clientWidth || window.innerWidth,
-              );
-              const h = Math.max(
-                1,
-                host?.clientHeight || window.innerHeight,
-              );
-              setSize(w, h);
-              setWorldReady(true);
-            }}
-          >
-            <MapWorld />
-          </Canvas>
+          {mountWorld ? (
+            <Canvas
+              style={{ width: "100%", height: "100%", display: "block" }}
+              resize={{ scroll: false, debounce: 0, offsetSize: true }}
+              dpr={1}
+              frameloop={runLoop ? "always" : "never"}
+              camera={{ position: [-4, 18, 22], fov: 48, near: 0.1, far: 200 }}
+              gl={{
+                antialias: false,
+                powerPreference: "high-performance",
+                alpha: false,
+                preserveDrawingBuffer: false,
+              }}
+              onCreated={({ gl, setSize }) => {
+                gl.setClearColor("#050508", 1);
+                gl.toneMapping = THREE.ACESFilmicToneMapping;
+                gl.toneMappingExposure = 1.15;
+                gl.shadowMap.enabled = false;
+                setSizeRef.current = setSize;
+                const host = canvasHostRef.current;
+                const w = Math.max(
+                  1,
+                  host?.clientWidth || window.innerWidth,
+                );
+                const h = Math.max(
+                  1,
+                  host?.clientHeight || window.innerHeight,
+                );
+                setSize(w, h);
+                setWorldReady(true);
+              }}
+            >
+              <MapWorld />
+            </Canvas>
+          ) : null}
         </div>
       ) : (
         <div className="absolute inset-0 bg-[#050508]" />

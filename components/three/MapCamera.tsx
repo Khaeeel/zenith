@@ -13,6 +13,7 @@ export default function MapCameraController() {
   const look = useRef(new THREE.Vector3(1, 3.5, 1));
   const targetPos = useRef(new THREE.Vector3(-5, 16, 24));
   const targetLook = useRef(new THREE.Vector3(1, 3.5, 1));
+  const lastFov = useRef(-1);
 
   useFrame((_, delta) => {
     const p = mapScroll.progress;
@@ -69,17 +70,23 @@ export default function MapCameraController() {
       );
     }
 
-    const lerp = 1 - Math.pow(0.0005, delta);
-    cam.position.lerp(targetPos.current, lerp);
-    look.current.lerp(targetLook.current, lerp);
+    // Track scroll tightly — old lerp felt like lag behind the wheel
+    const follow = Math.min(1, 18 * delta);
+    cam.position.lerp(targetPos.current, follow);
+    look.current.lerp(targetLook.current, follow);
     cam.lookAt(look.current);
+
     const close =
       p > 0.18 && p < 0.7
         ? THREE.MathUtils.smoothstep(p, 0.18, 0.35) *
           (1 - THREE.MathUtils.smoothstep(p, 0.62, 0.72))
         : 0;
-    cam.fov = 44 - close * 6;
-    cam.updateProjectionMatrix();
+    const nextFov = 44 - close * 6;
+    if (Math.abs(nextFov - lastFov.current) > 0.08) {
+      cam.fov = nextFov;
+      cam.updateProjectionMatrix();
+      lastFov.current = nextFov;
+    }
   });
 
   return null;

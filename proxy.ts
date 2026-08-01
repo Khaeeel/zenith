@@ -5,6 +5,7 @@ import { getToken } from "next-auth/jwt";
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Never gate public auth entry points
   if (
     pathname.startsWith("/admin/login") ||
     pathname.startsWith("/login") ||
@@ -20,10 +21,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-  });
+  let token = null;
+  try {
+    token = await getToken({
+      req: request,
+      secret: process.env.AUTH_SECRET,
+    });
+  } catch (err) {
+    // Missing/invalid AUTH_SECRET must not 500 protected routes — send to login
+    console.error("[proxy] getToken failed:", err);
+  }
 
   if (!token) {
     const loginPath = pathname.startsWith("/admin") ? "/admin/login" : "/login";

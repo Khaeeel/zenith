@@ -8,6 +8,24 @@ export const mapScroll = {
   markersVisible: false,
 };
 
+/** Clan runway asks the map to boot WebGL before the pin handoff. */
+const mapMountListeners = new Set<() => void>();
+export const mapMount = {
+  requested: false,
+  request() {
+    if (this.requested) return;
+    this.requested = true;
+    mapMountListeners.forEach((fn) => fn());
+  },
+  subscribe(fn: () => void) {
+    mapMountListeners.add(fn);
+    if (this.requested) fn();
+    return () => {
+      mapMountListeners.delete(fn);
+    };
+  },
+};
+
 export const MAP_SIZE = 52;
 export const MAP_SEGMENTS = 220;
 export const MAX_DISPLACEMENT = 6.2;

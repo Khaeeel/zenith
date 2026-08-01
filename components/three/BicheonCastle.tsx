@@ -493,13 +493,8 @@ function MidTower({
  * Zenith banner. Flat stone bailey (no grass / no terrain poking through).
  */
 export default function BicheonCastle() {
-  const ref = useRef<THREE.Group>(null);
   const mats = useStoneMaterials();
-
-  useFrame(() => {
-    if (ref.current)
-      ref.current.position.y = terrainHeightAt.sample(1, 1) - 0.12;
-  });
+  const baseY = terrainHeightAt.sample(1, 1) - 0.12;
 
   const half = 3.55;
   const wallH = 3.35;
@@ -511,7 +506,7 @@ export default function BicheonCastle() {
   ];
 
   return (
-    <group ref={ref} position={[1, 0, 1]} scale={1.35}>
+    <group position={[1, baseY, 1]} scale={1.35}>
       <MoatWater />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 0]}>
         <ringGeometry args={[4.85, 5.25, 48]} />

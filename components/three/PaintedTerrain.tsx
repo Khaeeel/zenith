@@ -1,19 +1,19 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { useMemo } from "react";
+import { useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { MAP_SIZE, MAX_DISPLACEMENT, bicheonHeightNorm } from "@/lib/mapWorld";
 
 /**
  * 3D heightfield painted with the MIR4 Bicheon albedo.
- * Not a flat screenshot — displaced mesh + PBR lighting + props sit on top.
+ * Tuned for scroll FPS: lower segments, Lambert, no shadows.
  */
 export default function PaintedTerrain() {
   const map = useLoader(THREE.TextureLoader, "/assets/map.png");
 
   const geometry = useMemo(() => {
-    const segs = 256;
+    const segs = 96;
     const geo = new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE, segs, segs);
     geo.rotateX(-Math.PI / 2);
 
@@ -24,8 +24,6 @@ export default function PaintedTerrain() {
       const x = pos.getX(i);
       const z = pos.getZ(i);
       const h = bicheonHeightNorm(x, z);
-      // Slight micro-detail so painted surface doesn’t read as a flat stamp
-      // (disabled under the fortress so bailey stays sealed)
       const keepDist = Math.hypot(x - 1, z - 1);
       const micro =
         keepDist < 10
@@ -34,7 +32,6 @@ export default function PaintedTerrain() {
             Math.sin(x * 5.1 - z * 4.2) * 0.02;
       pos.setY(i, h * MAX_DISPLACEMENT * 0.95 + micro);
 
-      // Map image: top of image = north (−Z in our layout)
       const u = x / MAP_SIZE + 0.5;
       const v = 1 - (z / MAP_SIZE + 0.5);
       uv.setXY(i, u, v);
@@ -48,62 +45,38 @@ export default function PaintedTerrain() {
 
   useMemo(() => {
     map.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = 8;
+    map.anisotropy = 2;
     map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping;
     map.minFilter = THREE.LinearMipmapLinearFilter;
     map.magFilter = THREE.LinearFilter;
   }, [map]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow>
-      <meshStandardMaterial
-        map={map}
-        roughness={0.88}
-        metalness={0.02}
-        envMapIntensity={0.55}
-      />
+    <mesh geometry={geometry}>
+      <meshLambertMaterial map={map} />
     </mesh>
   );
 }
 
-/** Dark coastal void around the landmass — reads as night ocean, not day bay. */
+/** Dark coastal void around the landmass — static, cheap materials. */
 export function CoastalWater() {
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    ref.current.position.y =
-      0.18 + Math.sin(clock.getElapsedTime() * 0.55) * 0.025;
-  });
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
         <planeGeometry args={[MAP_SIZE * 2.6, MAP_SIZE * 2.6]} />
-        <meshStandardMaterial
+        <meshBasicMaterial
           color="#0a1018"
           transparent
           opacity={0.85}
-          roughness={0.55}
-          metalness={0.2}
           depthWrite={false}
         />
       </mesh>
       <mesh
-        ref={ref}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[-MAP_SIZE * 0.32, 0.18, MAP_SIZE * 0.34]}
-        receiveShadow
       >
-        <circleGeometry args={[MAP_SIZE * 0.3, 96]} />
-        <meshPhysicalMaterial
-          color="#0e2830"
-          roughness={0.2}
-          metalness={0.25}
-          transmission={0.08}
-          thickness={0.5}
-          transparent
-          opacity={0.92}
-          envMapIntensity={0.6}
-        />
+        <circleGeometry args={[MAP_SIZE * 0.3, 32]} />
+        <meshBasicMaterial color="#0e2830" transparent opacity={0.9} />
       </mesh>
     </group>
   );

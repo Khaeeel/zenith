@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 type PreloaderProps = {
+  /** Fire early so homepage can mount WebGL/GSAP under the cover */
+  onWarm?: () => void;
   onComplete: () => void;
 };
 
@@ -12,21 +14,21 @@ type PreloaderProps = {
 let bootFinished = false;
 
 /**
- * Boot slate — short count, then lifts away.
- * Heavy CSS filters avoided so the 0→100 run stays smooth.
+ * Boot slate — counter runs while homepage warms underneath, then a quick lift.
  */
-export default function Preloader({ onComplete }: PreloaderProps) {
+export default function Preloader({ onWarm, onComplete }: PreloaderProps) {
   const [visible, setVisible] = useState(() => !bootFinished);
-  const [phase, setPhase] = useState<"load" | "reveal">("load");
   const counterRef = useRef<HTMLParagraphElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const completedRef = useRef(false);
+  const warmedRef = useRef(false);
 
   useEffect(() => {
     if (bootFinished) {
       setVisible(false);
       document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
+      onWarm?.();
       onComplete();
       return;
     }
@@ -43,45 +45,53 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       document.body.style.overflow = "";
     };
 
+    const warm = () => {
+      if (warmedRef.current) return;
+      warmedRef.current = true;
+      onWarm?.();
+    };
+
     if (prefersReduced) {
       bootFinished = true;
       setVisible(false);
       unlock();
+      warm();
       window.scrollTo(0, 0);
       onComplete();
       return;
     }
 
-    // Warm hero WebGL + logo while the counter runs
     void import("@/components/three/HeroScene");
-    const warm = new window.Image();
-    warm.src = "/assets/logo.png";
+    const logo = new window.Image();
+    logo.src = "/assets/logo.png";
 
     let raf = 0;
     let cancelled = false;
     const start = performance.now();
-    const duration = 900;
+    const duration = 750;
     const timers: number[] = [];
+
+    // Start mounting homepage under the slate ASAP
+    timers.push(window.setTimeout(warm, 80));
 
     const finish = () => {
       if (completedRef.current) return;
       completedRef.current = true;
       bootFinished = true;
+      warm();
       if (counterRef.current) counterRef.current.textContent = "100";
       if (barRef.current) barRef.current.style.width = "100%";
-      setPhase("reveal");
-      setVisible(false);
       window.scrollTo(0, 0);
       unlock();
-      // Notify parent immediately so Apex can mount/animate under the fade
+      // Fade out only — heavy work already warmed
+      setVisible(false);
       onComplete();
     };
 
     const tick = (now: number) => {
       if (cancelled || bootFinished) return;
       const t = Math.min(1, (now - start) / duration);
-      // Ease-out so 100 arrives feeling snappy
-      const eased = 1 - Math.pow(1 - t, 2.4);
+      const eased = 1 - Math.pow(1 - t, 2.2);
       const pct = Math.round(eased * 100);
       if (counterRef.current) {
         counterRef.current.textContent = String(pct).padStart(3, "0");
@@ -93,8 +103,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
     };
 
     raf = requestAnimationFrame(tick);
-    // Failsafe — never stick past ~1.6s
-    timers.push(window.setTimeout(finish, 1600));
+    timers.push(window.setTimeout(finish, 1200));
 
     return () => {
       cancelled = true;
@@ -102,7 +111,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       timers.forEach((id) => window.clearTimeout(id));
       if (!bootFinished) unlock();
     };
-  }, [onComplete]);
+  }, [onWarm, onComplete]);
 
   if (!visible && bootFinished) {
     return null;
@@ -116,7 +125,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           className="fixed inset-0 z-[100] flex flex-col bg-[#030305]"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.32, ease: [0.76, 0, 0.24, 1] }}
+          transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
         >
           <div
             className="pointer-events-none absolute inset-0"
@@ -139,7 +148,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           </div>
 
           <div className="flex flex-1 flex-col items-center justify-center gap-8">
-            <div className="relative animate-pulse">
+            <div className="relative">
               <div
                 className="pointer-events-none absolute inset-[-20%] rounded-full"
                 style={{
@@ -162,9 +171,7 @@ export default function Preloader({ onComplete }: PreloaderProps) {
                 APEX RESISTANCE COALITION
               </h1>
               <p className="text-[10px] tracking-[0.45em] text-gold-dim uppercase">
-                {phase === "reveal"
-                  ? "Welcome, recruit"
-                  : "Forging the resistance"}
+                Forging the resistance
               </p>
             </div>
           </div>

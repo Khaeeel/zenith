@@ -220,7 +220,7 @@ async function main() {
     data: {
       email: "admin@arc-zenith.local",
       passwordHash,
-      displayName: "Super Admin",
+      displayName: "Admin",
       appRole: "super_admin",
       memberId: leader.id,
       clanId: zenith.id,
@@ -237,10 +237,34 @@ async function main() {
     },
   });
 
+  const elderEmail = "elders.zenith@local.com";
+  const elderPassword =
+    process.env.SEED_ELDER_PASSWORD || "zenith2026!";
+  const elderHash = await bcrypt.hash(elderPassword, 10);
+
+  await db.user.upsert({
+    where: { email: elderEmail },
+    update: {
+      passwordHash: elderHash,
+      displayName: "Zenith Elders",
+      appRole: "clan_admin",
+      clanId: zenith.id,
+    },
+    create: {
+      email: elderEmail,
+      passwordHash: elderHash,
+      displayName: "Zenith Elders",
+      appRole: "clan_admin",
+      clanId: zenith.id,
+    },
+  });
+
   console.log("Seed complete.");
   console.log("Admins (password from SEED_ADMIN_PASSWORD):");
   console.log("  admin@arc-zenith.local (super_admin)");
   console.log("  zenith.leader@arc-zenith.local");
+  console.log("Dashboard login (SEED_ELDER_PASSWORD or zenith2026!):");
+  console.log(`  ${elderEmail} (clan_admin)`);
 }
 
 main()

@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:ensure-elder": "tsx prisma/ensure-elder-login.ts",
     "db:import-hofgamer": "tsx prisma/import-hofgamer.ts",
     "db:import-alliance-clans": "tsx prisma/import-alliance-clans.ts",
     "db:backfill-ign-id": "tsx prisma/backfill-ign-id.ts",

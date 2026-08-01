@@ -3,7 +3,7 @@ import OrnateFrame from "@/components/dashboard/OrnateFrame";
 import PageHeader from "@/components/dashboard/PageHeader";
 import { getAnnouncements, relativeTime } from "@/lib/tracker/queries";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function DashboardAnnouncementsPage() {
   const announcements = await getAnnouncements(50);

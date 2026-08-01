@@ -4,7 +4,7 @@ import PageHeader from "@/components/dashboard/PageHeader";
 import Countdown from "@/components/events/Countdown";
 import { getPublishedEvents } from "@/lib/tracker/queries";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 const FEATURED_ICONS = ["⚔", "🏛", "🛡"];
 const WEEKLY_ICONS = ["🐉", "⛰", "⚡", "💎"];

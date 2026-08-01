@@ -2,8 +2,6 @@ import Link from "next/link";
 
 const LINKS = [
   { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/clans", label: "Clans" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -12,10 +10,10 @@ export default function PublicChrome({
   active,
 }: {
   children: React.ReactNode;
-  active?: "home" | "dashboard" | "clans" | "contact";
+  active?: "home" | "clans" | "contact";
 }) {
   return (
-    <div className="hub-theme relative min-h-screen overflow-x-hidden">
+    <div className="hub-theme relative min-h-screen overflow-x-clip">
       <div className="pointer-events-none fixed inset-0">
         <div
           className="absolute inset-0"
@@ -64,8 +62,6 @@ export default function PublicChrome({
             {LINKS.map((l) => {
               const isActive =
                 (active === "home" && l.href === "/") ||
-                (active === "dashboard" && l.href === "/dashboard") ||
-                (active === "clans" && l.href === "/dashboard/clans") ||
                 (active === "contact" && l.href === "/contact");
               return (
                 <Link
@@ -82,7 +78,13 @@ export default function PublicChrome({
               );
             })}
             <Link
-              href="/admin"
+              href="/login"
+              className="rounded-full border border-[#d4af37]/55 px-3 py-1.5 font-display text-[10px] tracking-[0.18em] text-[#f0d060] uppercase shadow-[0_0_16px_rgba(212,175,55,0.2)] transition hover:bg-gold/10"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/admin/login"
               className="hidden rounded-full border border-[#d4af37]/55 px-3 py-1.5 font-display text-[10px] tracking-[0.18em] text-[#f0d060] uppercase shadow-[0_0_16px_rgba(212,175,55,0.2)] transition hover:bg-gold/10 sm:inline"
             >
               Admin
@@ -116,11 +118,8 @@ export default function PublicChrome({
               <Link href="/contact" className="text-xs text-[#c9a84a]/70 hover:text-[#f0d060]">
                 Contact
               </Link>
-              <Link href="/dashboard" className="text-xs text-[#c9a84a]/70 hover:text-[#f0d060]">
-                Tracker
-              </Link>
-              <Link href="/dashboard/events" className="text-xs text-[#c9a84a]/70 hover:text-[#f0d060]">
-                Events
+              <Link href="/login" className="text-xs text-[#c9a84a]/70 hover:text-[#f0d060]">
+                Sign in
               </Link>
             </div>
           </div>

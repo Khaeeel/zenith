@@ -19,6 +19,12 @@ export async function loginAction(formData: FormData) {
   }
 }
 
-export async function logoutAction() {
-  await signOut({ redirectTo: "/admin/login" });
+export async function logoutAction(redirectTo = "/login") {
+  const safe =
+    typeof redirectTo === "string" &&
+    redirectTo.startsWith("/") &&
+    !redirectTo.startsWith("//")
+      ? redirectTo
+      : "/login";
+  await signOut({ redirectTo: safe });
 }

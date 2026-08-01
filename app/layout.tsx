@@ -37,9 +37,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${cinzel.variable} h-full antialiased`}
+      className={`${inter.variable} ${cinzel.variable} antialiased`}
     >
-      <body className="min-h-full bg-background text-foreground">
+      <body className="bg-background text-foreground">
         <SmoothScroll>{children}</SmoothScroll>
       </body>
     </html>

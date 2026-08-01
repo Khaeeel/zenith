@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { logoutAction } from "@/lib/actions/auth";
+import { SidebarNavItems } from "@/components/dashboard/SidebarNavItems";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", exact: true },
@@ -16,56 +17,9 @@ const NAV = [
   { href: "/dashboard/reports", label: "Reports", soon: true },
 ] as const;
 
-function isActive(pathname: string, href: string, exact?: boolean) {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
 export default function DashboardSidebar() {
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-
-  const nav = (
-    <nav className="flex flex-col gap-1 px-3 py-5">
-      {NAV.map((item) => {
-        const active = isActive(
-          pathname,
-          item.href,
-          "exact" in item && item.exact,
-        );
-        const soon = "soon" in item && item.soon;
-
-        if (soon) {
-          return (
-            <span
-              key={item.href}
-              className="flex items-center justify-between rounded-sm px-3 py-2.5 font-display text-[10px] tracking-[0.22em] text-[#8a7028]/55 uppercase"
-            >
-              {item.label}
-              <span className="text-[8px] tracking-widest text-white/20">
-                Soon
-              </span>
-            </span>
-          );
-        }
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            className={`rounded-sm px-3 py-2.5 font-display text-[10px] tracking-[0.22em] uppercase transition ${
-              active
-                ? "border border-[#d4af37]/50 bg-[rgba(212,175,55,0.12)] text-[#f0d060] shadow-[0_0_16px_rgba(212,175,55,0.15)]"
-                : "border border-transparent text-[#c9a84a]/75 hover:border-[#d4af37]/25 hover:bg-[rgba(212,175,55,0.06)] hover:text-[#f0d060]"
-            }`}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
+  const [signingOut, startSignOut] = useTransition();
 
   return (
     <>
@@ -100,7 +54,7 @@ export default function DashboardSidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r border-[#d4af37]/25 bg-[rgba(8,12,22,0.96)] shadow-[4px_0_40px_rgba(0,0,0,0.5)] transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r border-[#d4af37]/25 bg-[rgba(8,12,22,0.96)] shadow-[4px_0_40px_rgba(0,0,0,0.5)] transition-transform duration-200 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -130,12 +84,22 @@ export default function DashboardSidebar() {
           </button>
         </div>
 
-        {nav}
+        <nav className="flex flex-col gap-1 px-3 py-5">
+          <SidebarNavItems items={NAV} onNavigate={() => setOpen(false)} />
+        </nav>
 
         <div className="mt-auto space-y-2 border-t border-[#d4af37]/2 p-4">
           <Link href="/admin" className="hub-btn block w-full text-center">
             Admin Hub
           </Link>
+          <button
+            type="button"
+            disabled={signingOut}
+            onClick={() => startSignOut(() => logoutAction("/login"))}
+            className="hub-btn-filled w-full py-2.5"
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
           <Link
             href="/"
             className="block text-center font-display text-[10px] tracking-[0.2em] text-gold/60 uppercase transition hover:text-gold-bright"

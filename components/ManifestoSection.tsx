@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -8,7 +8,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 /**
  * Pinned manifesto chapter — massive typography scrubbed by scroll.
- * Inspired by agency "statement" sections (Lusion / Resn energy).
+ * Content stays readable through the pin (no empty black void after fade-out).
  */
 export default function ManifestoSection({ ready = true }: { ready?: boolean }) {
   const sectionRef = useRef<HTMLElement>(null);
@@ -17,59 +17,72 @@ export default function ManifestoSection({ ready = true }: { ready?: boolean }) 
   const line3 = useRef<HTMLParagraphElement>(null);
   const sub = useRef<HTMLParagraphElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!ready || !sectionRef.current) return;
+
+    const lines = [line1.current, line2.current, line3.current, sub.current].filter(
+      Boolean,
+    ) as HTMLElement[];
+
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    if (prefersReduced) return;
+
+    if (prefersReduced) {
+      gsap.set(lines, { opacity: 1, y: 0, rotateX: 0 });
+      return;
+    }
 
     const ctx = gsap.context(() => {
+      gsap.set([line1.current, line2.current, line3.current], {
+        opacity: 0,
+        y: 120,
+        rotateX: 40,
+      });
+      gsap.set(sub.current, { opacity: 0, y: 30 });
+
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: sectionRef.current,
           start: "top top",
-          end: "+=105%",
+          end: "+=90%",
           pin: true,
           scrub: 0.75,
           anticipatePin: 1,
+          invalidateOnRefresh: true,
         },
       });
 
-      tl.fromTo(
+      tl.to(
         line1.current,
-        { y: 120, opacity: 0, rotateX: 40 },
-        { y: 0, opacity: 1, rotateX: 0, ease: "none" },
+        { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
         0,
       )
-        .fromTo(
+        .to(
           line2.current,
-          { y: 120, opacity: 0, rotateX: 40 },
-          { y: 0, opacity: 1, rotateX: 0, ease: "none" },
-          0.15,
+          { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
+          0.12,
         )
-        .fromTo(
+        .to(
           line3.current,
-          { y: 120, opacity: 0, rotateX: 40 },
-          { y: 0, opacity: 1, rotateX: 0, ease: "none" },
-          0.3,
+          { y: 0, opacity: 1, rotateX: 0, ease: "none", duration: 0.35 },
+          0.24,
         )
-        .fromTo(
+        .to(
           sub.current,
-          { opacity: 0, y: 30 },
-          { opacity: 1, y: 0, ease: "none" },
-          0.5,
+          { opacity: 1, y: 0, ease: "none", duration: 0.3 },
+          0.4,
         )
-        .to({}, { duration: 0.08 })
-        .to([line1.current, line2.current, line3.current, sub.current], {
-          opacity: 0,
-          y: -60,
-          ease: "none",
-          duration: 0.18,
-        });
+        // Hold readable content through the rest of the pin
+        .to({}, { duration: 0.45 });
     }, sectionRef);
 
-    return () => ctx.revert();
+    ScrollTrigger.refresh();
+
+    return () => {
+      ctx.revert();
+      gsap.set(lines, { clearProps: "opacity,transform" });
+    };
   }, [ready]);
 
   return (
@@ -79,7 +92,6 @@ export default function ManifestoSection({ ready = true }: { ready?: boolean }) 
       className="relative flex h-screen items-center justify-center overflow-hidden bg-[#040406]"
       style={{ perspective: "1000px" }}
     >
-      {/* Moving gold wash */}
       <div
         className="pointer-events-none absolute inset-0 opacity-40"
         style={{
@@ -89,7 +101,6 @@ export default function ManifestoSection({ ready = true }: { ready?: boolean }) 
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.75)_100%)]" />
 
-      {/* Soft grid */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.04]"
         style={{
@@ -106,21 +117,21 @@ export default function ManifestoSection({ ready = true }: { ready?: boolean }) 
 
         <p
           ref={line1}
-          className="font-display text-4xl leading-none tracking-[0.08em] text-gold-bright opacity-0 sm:text-6xl md:text-7xl lg:text-8xl"
+          className="font-display text-4xl leading-none tracking-[0.08em] text-gold-bright sm:text-6xl md:text-7xl lg:text-8xl"
           style={{ transformStyle: "preserve-3d" }}
         >
           ONE RESISTANCE
         </p>
         <p
           ref={line2}
-          className="font-display mt-3 text-4xl leading-none tracking-[0.08em] text-gold opacity-0 sm:text-6xl md:text-7xl lg:text-8xl"
+          className="font-display mt-3 text-4xl leading-none tracking-[0.08em] text-gold sm:text-6xl md:text-7xl lg:text-8xl"
           style={{ transformStyle: "preserve-3d" }}
         >
           ONE COALITION
         </p>
         <p
           ref={line3}
-          className="shimmer-text font-display mt-3 text-4xl leading-none tracking-[0.08em] opacity-0 sm:text-6xl md:text-7xl lg:text-8xl"
+          className="shimmer-text font-display mt-3 text-4xl leading-none tracking-[0.08em] sm:text-6xl md:text-7xl lg:text-8xl"
           style={{ transformStyle: "preserve-3d" }}
         >
           ONE FUTURE
@@ -128,7 +139,7 @@ export default function ManifestoSection({ ready = true }: { ready?: boolean }) 
 
         <p
           ref={sub}
-          className="mt-10 max-w-lg text-sm leading-relaxed text-foreground/55 opacity-0 sm:text-base"
+          className="mt-10 max-w-lg text-sm leading-relaxed text-foreground/55 sm:text-base"
         >
           Twelve clans under the APEX RESISTANCE banner. Bound by discipline,
           powered by Zenith — forged for MIR4.

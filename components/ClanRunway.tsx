@@ -48,13 +48,14 @@ export default function ClanRunway({ ready = true }: { ready?: boolean }) {
             const tp = cardEnd > 0 ? p / cardEnd : 1;
             track.style.transform = `translate3d(${-amount * tp}px,0,0)`;
             if (cardsWrapRef.current) {
-              const lift = smoothstep(tp, 0.9, 1);
-              cardsWrapRef.current.style.opacity = String(1 - lift * 0.85);
-              cardsWrapRef.current.style.transform = `translateY(${-lift * 24}px)`;
+              const lift = smoothstep(tp, 0.92, 1);
+              // Keep cards readable — never fully invisible mid-runway
+              cardsWrapRef.current.style.opacity = String(1 - lift * 0.35);
+              cardsWrapRef.current.style.transform = `translateY(${-lift * 16}px)`;
             }
             if (headerRef.current) {
               headerRef.current.style.opacity = String(
-                1 - smoothstep(tp, 0.88, 1),
+                1 - smoothstep(tp, 0.9, 1) * 0.85,
               );
             }
             if (sectionRef.current) {
@@ -72,10 +73,12 @@ export default function ClanRunway({ ready = true }: { ready?: boolean }) {
             const bp = (p - cardEnd) / (1 - cardEnd);
             if (cardsWrapRef.current) {
               cardsWrapRef.current.style.opacity = String(
-                Math.max(0, 0.15 - bp * 0.15),
+                Math.max(0.2, 0.65 - bp * 0.45),
               );
             }
-            if (headerRef.current) headerRef.current.style.opacity = "0";
+            if (headerRef.current) {
+              headerRef.current.style.opacity = String(Math.max(0, 0.15 - bp * 0.15));
+            }
             if (sectionRef.current) {
               sectionRef.current.style.setProperty(
                 "--runway-dusk",
@@ -84,13 +87,15 @@ export default function ClanRunway({ ready = true }: { ready?: boolean }) {
             }
             if (outroRef.current) {
               outroRef.current.style.opacity = String(
-                Math.max(0, 1 - smoothstep(bp, 0.2, 0.75)),
+                Math.max(0, 1 - smoothstep(bp, 0.25, 0.85)),
               );
             }
           }
         },
       });
     }, sectionRef);
+
+    requestAnimationFrame(() => ScrollTrigger.refresh());
 
     return () => ctx.revert();
   }, [ready]);

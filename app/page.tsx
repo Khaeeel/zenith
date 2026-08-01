@@ -40,9 +40,11 @@ export default function HomePage() {
         ).__lenis?.resize();
       });
     };
-    // One deferred refresh — avoid thrashing during the Apex reveal
+    // Refresh after pin spacers settle so chapters below stay reachable
     requestAnimationFrame(() => {
       window.setTimeout(refresh, 120);
+      window.setTimeout(refresh, 600);
+      window.setTimeout(refresh, 1400);
     });
   }, []);
 
@@ -88,12 +90,11 @@ export default function HomePage() {
             Contact
           </Link>
           <Link
-            href="/dashboard"
-            prefetch
+            href="/login"
             data-magnetic
             className="magnetic font-display text-[10px] tracking-widest text-gold/80 uppercase transition hover:text-gold-bright sm:text-xs"
           >
-            Dashboard
+            Login
           </Link>
           <button
             type="button"

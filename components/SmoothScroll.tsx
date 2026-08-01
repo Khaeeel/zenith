@@ -1,71 +1,97 @@
 "use client";
 
 import { useEffect } from "react";
-import Lenis from "lenis";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
+import { usePathname } from "next/navigation";
 
 /**
- * Lenis smooth scroll ↔ GSAP ScrollTrigger.
- * Must resize Lenis whenever pin-spacers change document height,
- * or the scroll limit freezes mid-runway (dead chapters below).
+ * Lenis only on the cinematic homepage — dashboard/admin use native scroll.
+ * GSAP/ScrollTrigger are loaded only when Lenis is active (avoids nav jank).
  */
 export default function SmoothScroll({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const enableLenis = pathname === "/";
+
   useEffect(() => {
+    if (!enableLenis) {
+      document.documentElement.classList.remove("lenis", "lenis-smooth");
+      return;
+    }
+
     const prefersReduced =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (prefersReduced) return;
 
-    const lenis = new Lenis({
-      duration: 1.05,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      touchMultiplier: 1.5,
-      autoRaf: false,
-    });
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
 
-    (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
+    void (async () => {
+      const [{ default: Lenis }, { gsap }, { ScrollTrigger }] =
+        await Promise.all([
+          import("lenis"),
+          import("gsap"),
+          import("gsap/ScrollTrigger"),
+        ]);
 
-    lenis.on("scroll", ScrollTrigger.update);
+      if (cancelled) return;
 
-    const syncLimit = () => {
-      lenis.resize();
-    };
+      gsap.registerPlugin(ScrollTrigger);
 
-    ScrollTrigger.addEventListener("refresh", syncLimit);
+      const lenis = new Lenis({
+        duration: 1.05,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        touchMultiplier: 1.5,
+        autoRaf: false,
+      });
 
-    const ticker = (time: number) => {
-      lenis.raf(time * 1000);
-    };
-    gsap.ticker.add(ticker);
-    gsap.ticker.lagSmoothing(0);
+      document.documentElement.classList.add("lenis", "lenis-smooth");
+      (window as unknown as { __lenis?: typeof lenis }).__lenis = lenis;
 
-    const onResize = () => {
-      lenis.resize();
-      ScrollTrigger.refresh();
-    };
-    window.addEventListener("resize", onResize);
+      lenis.on("scroll", ScrollTrigger.update);
 
-    const t1 = window.setTimeout(syncLimit, 500);
-    const t2 = window.setTimeout(syncLimit, 1400);
+      const syncLimit = () => {
+        lenis.resize();
+      };
+
+      ScrollTrigger.addEventListener("refresh", syncLimit);
+
+      const ticker = (time: number) => {
+        lenis.raf(time * 1000);
+      };
+      gsap.ticker.add(ticker);
+      gsap.ticker.lagSmoothing(0);
+
+      const onResize = () => {
+        lenis.resize();
+        ScrollTrigger.refresh();
+      };
+      window.addEventListener("resize", onResize);
+
+      const t1 = window.setTimeout(syncLimit, 500);
+      const t2 = window.setTimeout(syncLimit, 1400);
+
+      cleanup = () => {
+        window.clearTimeout(t1);
+        window.clearTimeout(t2);
+        window.removeEventListener("resize", onResize);
+        ScrollTrigger.removeEventListener("refresh", syncLimit);
+        gsap.ticker.remove(ticker);
+        delete (window as unknown as { __lenis?: typeof lenis }).__lenis;
+        document.documentElement.classList.remove("lenis", "lenis-smooth");
+        lenis.destroy();
+      };
+    })();
 
     return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.removeEventListener("resize", onResize);
-      ScrollTrigger.removeEventListener("refresh", syncLimit);
-      gsap.ticker.remove(ticker);
-      delete (window as unknown as { __lenis?: Lenis }).__lenis;
-      lenis.destroy();
+      cancelled = true;
+      cleanup?.();
     };
-  }, []);
+  }, [enableLenis]);
 
   return <>{children}</>;
 }

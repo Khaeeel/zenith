@@ -5,8 +5,8 @@ import {
   getServersAndRegions,
 } from "@/lib/tracker/queries";
 
-/** Fresh after admin clan mutations (revalidatePath). */
-export const dynamic = "force-dynamic";
+/** Short cache; admin clan mutations call revalidatePath. */
+export const revalidate = 30;
 
 export default async function ClansPage() {
   const [clans, { servers, regions }, alliances] = await Promise.all([

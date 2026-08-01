@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DashboardSidebar from "@/components/dashboard/Sidebar";
+import { requireAuth } from "@/lib/admin-auth";
 
 export const metadata: Metadata = {
   title: "Dashboard | MIR4 Tracker · ARC",
@@ -7,11 +8,13 @@ export const metadata: Metadata = {
     "Overview of the current MIR4 server, clan, alliance, and player ecosystem.",
 };
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAuth();
+
   return (
     <div className="hub-theme relative min-h-screen">
       {/* Atmospheric hall backdrop — CSS only (no SVG feTurbulence) */}

@@ -10,12 +10,13 @@ const CHAPTER_IDS = [
   "join",
 ] as const;
 
+/** Thin cinematic bars — keep small so page content is never half-covered. */
 const HEIGHT: Record<string, string> = {
-  hero: "h-5 sm:h-7",
-  manifesto: "h-6 sm:h-8",
-  runway: "h-5 sm:h-7",
-  territories: "h-3 sm:h-4",
-  join: "h-6 sm:h-8",
+  hero: "h-3 sm:h-4",
+  manifesto: "h-3 sm:h-4",
+  runway: "h-3 sm:h-4",
+  territories: "h-2 sm:h-3",
+  join: "h-3 sm:h-4",
 };
 
 function activeChapterId(): string {
@@ -32,7 +33,7 @@ function activeChapterId(): string {
   return active;
 }
 
-/** Cinematic letterbox — opens wider over the realm map. */
+/** Cinematic letterbox — thin bars only; never obscure half the viewport. */
 export default function Letterbox({ ready }: { ready: boolean }) {
   const [chapter, setChapter] = useState("hero");
 
@@ -41,14 +42,19 @@ export default function Letterbox({ ready }: { ready: boolean }) {
     const onScroll = () => setChapter(activeChapterId());
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
+    const lenis = (
+      window as unknown as { __lenis?: { on: Function; off: Function } }
+    ).__lenis;
+    lenis?.on?.("scroll", onScroll);
     const t = window.setTimeout(onScroll, 800);
     return () => {
       window.removeEventListener("scroll", onScroll);
+      lenis?.off?.("scroll", onScroll);
       window.clearTimeout(t);
     };
   }, [ready]);
 
-  const h = ready ? HEIGHT[chapter] ?? "h-5 sm:h-7" : "h-0";
+  const h = ready ? HEIGHT[chapter] ?? "h-3 sm:h-4" : "h-0";
 
   return (
     <>

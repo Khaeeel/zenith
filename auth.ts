@@ -3,10 +3,11 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import type { AppRole } from "@prisma/client";
 import { db } from "@/lib/db";
-import { resolveAuthSecret, sanitizeAuthEnv } from "@/lib/auth-env";
+import authConfig from "@/auth.config";
+import { sanitizeAuthEnv } from "@/lib/auth-env";
 
 // Must run before NextAuth reads AUTH_URL — invalid values cause TypeError: Invalid URL.
-const { secret: authSecret } = sanitizeAuthEnv();
+sanitizeAuthEnv();
 
 declare module "next-auth" {
   interface User {
@@ -43,10 +44,10 @@ declare module "@auth/core/jwt" {
  * - Prefer AUTH_TRUST_HOST=true and a valid AUTH_URL origin, OR omit AUTH_URL
  *   (we fall back to https://$VERCEL_URL). Never set AUTH_URL to "" or quoted values.
  * - trustHost: true so reverse-proxy hosts are accepted
+ * - Edge/proxy uses auth.config.ts (no Prisma); this file adds Credentials + DB.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: authSecret ?? resolveAuthSecret(),
-  trustHost: true,
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -93,33 +94,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id!;
-        token.email = user.email;
-        token.appRole = user.appRole;
-        token.clanId = user.clanId;
-        token.memberId = user.memberId;
-        token.displayName = user.displayName;
-      }
-      return token;
-    },
-    session({ session, token }) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (session as any).user = {
-        id: token.id,
-        email: typeof token.email === "string" ? token.email : "",
-        displayName: token.displayName,
-        appRole: token.appRole,
-        clanId: token.clanId,
-        memberId: token.memberId,
-      };
-      return session;
-    },
-  },
 });

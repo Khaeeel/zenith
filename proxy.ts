@@ -1,10 +1,19 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { resolveAuthSecret, sanitizeAuthEnv } from "@/lib/auth-env";
+import NextAuth from "next-auth";
+import authConfig from "@/auth.config";
+import { sanitizeAuthEnv } from "@/lib/auth-env";
 
-export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+sanitizeAuthEnv();
+
+/**
+ * Edge proxy (Next.js 16 renamed middleware → proxy).
+ * Use Auth.js `auth()` so session cookies are read with the correct
+ * `__Secure-authjs.session-token` name/salt on HTTPS — unlike getToken()
+ * which defaults to the non-secure cookie name when secureCookie is omitted.
+ */
+const { auth } = NextAuth(authConfig);
+
+export const proxy = auth((req) => {
+  const { pathname } = req.nextUrl;
 
   // Never gate public auth entry points
   if (
@@ -12,37 +21,23 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth")
   ) {
-    return NextResponse.next();
+    return;
   }
 
   const needsAuth =
     pathname.startsWith("/admin") || pathname.startsWith("/dashboard");
 
   if (!needsAuth) {
-    return NextResponse.next();
+    return;
   }
 
-  sanitizeAuthEnv();
-  let token = null;
-  try {
-    token = await getToken({
-      req: request,
-      secret: resolveAuthSecret(),
-    });
-  } catch (err) {
-    // Missing/invalid AUTH_SECRET must not 500 protected routes — send to login
-    console.error("[proxy] getToken failed:", err);
-  }
-
-  if (!token) {
+  if (!req.auth) {
     const loginPath = pathname.startsWith("/admin") ? "/admin/login" : "/login";
-    const login = new URL(loginPath, request.url);
+    const login = new URL(loginPath, req.nextUrl.origin);
     login.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(login);
+    return Response.redirect(login);
   }
-
-  return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [

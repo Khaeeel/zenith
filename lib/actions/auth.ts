@@ -34,6 +34,49 @@ function safeDebugDetail(error: unknown): string {
   return "unknown error";
 }
 
+function errorFromSignInResult(result: unknown): string | null {
+  // Client-style shape: { error, ok, url, ... }
+  if (result && typeof result === "object") {
+    const r = result as { error?: unknown; ok?: unknown; url?: unknown };
+    if (r.ok === false || (typeof r.error === "string" && r.error)) {
+      const err = typeof r.error === "string" ? r.error : "CredentialsSignin";
+      if (err === "CredentialsSignin" || err === "credentials") {
+        return "Invalid email or password.";
+      }
+      if (err === "Configuration") {
+        return "Auth/configuration error. Check AUTH_URL (bare origin or delete it), AUTH_SECRET, and DATABASE_URL — then redeploy.";
+      }
+      return `Sign-in failed (${err}).`;
+    }
+    if (typeof r.url === "string") {
+      return errorFromRedirectUrl(r.url);
+    }
+  }
+
+  if (typeof result === "string") {
+    return errorFromRedirectUrl(result);
+  }
+
+  return null;
+}
+
+function errorFromRedirectUrl(result: string): string | null {
+  try {
+    const url = new URL(result, process.env.AUTH_URL || "http://localhost");
+    const err = url.searchParams.get("error");
+    if (!err) return null;
+    if (err === "CredentialsSignin" || err === "credentials") {
+      return "Invalid email or password.";
+    }
+    if (err === "Configuration") {
+      return "Auth/configuration error. Check AUTH_URL (bare origin or delete it), AUTH_SECRET, and DATABASE_URL — then redeploy.";
+    }
+    return `Sign-in failed (${err}).`;
+  } catch {
+    return null;
+  }
+}
+
 export async function loginAction(formData: FormData) {
   sanitizeAuthEnv();
 
@@ -51,32 +94,12 @@ export async function loginAction(formData: FormData) {
       redirect: false,
     });
 
-    // Auth.js may return a redirect URL with ?error= instead of throwing
-    if (typeof result === "string") {
-      try {
-        const url = new URL(
-          result,
-          process.env.AUTH_URL || "http://localhost",
-        );
-        const err = url.searchParams.get("error");
-        if (err) {
-          if (err === "CredentialsSignin" || err === "credentials") {
-            return { error: "Invalid email or password." };
-          }
-          if (err === "Configuration") {
-            return {
-              error:
-                "Auth/configuration error. Check AUTH_URL (bare origin or delete it), AUTH_SECRET, and DATABASE_URL — then redeploy.",
-            };
-          }
-          return { error: `Sign-in failed (${err}).` };
-        }
-      } catch {
-        // result wasn't a URL — treat as success path below
-      }
+    const signInError = errorFromSignInResult(result);
+    if (signInError) {
+      return { error: signInError };
     }
 
-    return { ok: true };
+    return { ok: true as const };
   } catch (e) {
     if (isNextRedirect(e)) throw e;
 

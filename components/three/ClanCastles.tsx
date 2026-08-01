@@ -375,7 +375,7 @@ function KeepLayout({
           <SquareTower x={1.7} z={1.2} floors={0} colors={colors} />
         </group>
       );
-    case "zenith-x":
+    case "zenith-sza":
       return (
         <group>
           <Piece name="tower-square-arch" colors={colors} />
@@ -389,7 +389,6 @@ function KeepLayout({
           />
         </group>
       );
-    case "sza":
     default:
       return (
         <group>
@@ -482,19 +481,12 @@ const PALETTE: Record<
     pad: "#686058",
     torch: "#ffe080",
   },
-  "zenith-x": {
+  "zenith-sza": {
     stone: "#788898",
     slate: "#182028",
     banner: "#40a0ff",
     pad: "#405058",
     torch: "#60c0ff",
-  },
-  sza: {
-    stone: "#90a8c0",
-    slate: "#183040",
-    banner: "#2080ff",
-    pad: "#486070",
-    torch: "#40a0ff",
   },
 };
 

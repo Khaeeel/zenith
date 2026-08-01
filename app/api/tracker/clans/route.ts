@@ -5,6 +5,8 @@ import {
   getServersAndRegions,
 } from "@/lib/tracker/queries";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const [clans, { servers, regions }, alliances] = await Promise.all([

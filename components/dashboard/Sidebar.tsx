@@ -8,12 +8,12 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", exact: true },
   { href: "/dashboard/clans", label: "Clans" },
   { href: "/dashboard/events", label: "Events" },
+  { href: "/dashboard/announcements", label: "Announcements" },
   { href: "/dashboard/servers", label: "Servers", soon: true },
   { href: "/dashboard/alliances", label: "Alliances", soon: true },
   { href: "/dashboard/players", label: "Players", soon: true },
   { href: "/dashboard/rankings", label: "Rankings", soon: true },
   { href: "/dashboard/reports", label: "Reports", soon: true },
-  { href: "/dashboard/announcements", label: "Announcements", soon: true },
 ] as const;
 
 function isActive(pathname: string, href: string, exact?: boolean) {

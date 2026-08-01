@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
+import ConfirmForm from "@/components/admin/ConfirmForm";
+
 
 const NAV = [
   { href: "/admin", label: "Overview", exact: true },
@@ -85,11 +87,19 @@ export default function AdminNav({
           <Link href="/dashboard" className="hub-btn block w-full text-center">
             Public site
           </Link>
-          <form action={logoutAction}>
+          <ConfirmForm
+            action={async () => {
+              await logoutAction();
+            }}
+            title="Sign out"
+            message="Sign out of the admin panel?"
+            confirmLabel="Sign out"
+            notifySuccess={false}
+          >
             <button type="submit" className="hub-btn-filled w-full py-2.5">
               Sign out
             </button>
-          </form>
+          </ConfirmForm>
         </div>
       </aside>
 

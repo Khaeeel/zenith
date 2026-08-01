@@ -117,7 +117,8 @@ npm run db:seed
 ```
 
 - `db:migrate` applies Prisma migrations
-- `db:seed` creates servers, Zenith clan sample data, events, contacts, and admin users
+- `db:seed` creates servers, clans, Zenith roster from HofGamer CSV, events, contacts, and admin users
+- `db:import-hofgamer` re-imports Zenith members from `prisma/data/hofgamer-zenith.csv`
 
 ### Seeded admin logins
 
@@ -127,7 +128,6 @@ Sign in at **http://localhost:3000/admin/login**
 |-------|------|
 | `admin@arc-zenith.local` | Super admin |
 | `zenith.leader@arc-zenith.local` | Clan admin |
-| `zenith.elder@arc-zenith.local` | Elder |
 | `dragon.admin@arc-zenith.local` | Clan admin |
 
 Default password: **`ChangeMe123!`** (or whatever you set in `SEED_ADMIN_PASSWORD`).

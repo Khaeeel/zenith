@@ -1,5 +1,21 @@
 /** Shared formatters (no DB) — used by tracker queries and UI */
 
+export type HierarchyRole =
+  | "Clan Leader"
+  | "Elder"
+  | "Master Protector"
+  | "Member";
+
+export type TrackerPlayer = {
+  id: string;
+  name: string;
+  power: number;
+  role: HierarchyRole;
+  title?: string;
+  online?: boolean;
+  photo?: string;
+};
+
 export function formatPower(n: number): string {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)}B`;
   if (n >= 1_000_000) {

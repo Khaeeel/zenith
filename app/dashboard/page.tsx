@@ -2,30 +2,29 @@ import Link from "next/link";
 import OrnateFrame from "@/components/dashboard/OrnateFrame";
 import PageHeader from "@/components/dashboard/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
+import PowerLine from "@/components/dashboard/charts/PowerLine";
+import RoleDonut from "@/components/dashboard/charts/RoleDonut";
 import {
   formatNumber,
   formatPower,
-  getAnnouncements,
-  getDashboardStats,
-  getLargestClan,
-  getLatestAlliance,
-  getStrongestClan,
-  getTopClansByPower,
+  getDashboardOverview,
   relativeTime,
 } from "@/lib/tracker/queries";
 
-export const dynamic = "force-dynamic";
+/** Cache Neon reads briefly — was force-dynamic (6s+ cold trips). */
+export const revalidate = 30;
 
 export default async function DashboardPage() {
-  const [stats, strongest, largest, topClans, alliance, announcements] =
-    await Promise.all([
-      getDashboardStats(),
-      getStrongestClan(),
-      getLargestClan(),
-      getTopClansByPower(5),
-      getLatestAlliance(),
-      getAnnouncements(5),
-    ]);
+  const {
+    stats,
+    strongest,
+    largest,
+    topClans,
+    chartClans,
+    roleMix,
+    alliance,
+    announcements,
+  } = await getDashboardOverview();
 
   const allianceClans = alliance?.clans.map((c) => c.clan) ?? [];
   const alliancePower = allianceClans.reduce(
@@ -51,17 +50,55 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mt-12">
+        <h2 className="hub-section-title mb-5">Command Insights</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <OrnateFrame className="overflow-hidden" ornate={false}>
+            <div className="border-b border-[#d4af37]/2 px-5 py-3">
+              <p className="font-display text-[10px] tracking-[0.22em] text-[#8a7028] uppercase">
+                Top Clans by Power
+              </p>
+            </div>
+            <PowerLine clans={chartClans} />
+          </OrnateFrame>
+          <OrnateFrame className="overflow-hidden" ornate={false}>
+            <div className="border-b border-[#d4af37]/2 px-5 py-3">
+              <p className="font-display text-[10px] tracking-[0.22em] text-[#8a7028] uppercase">
+                Roster Role Mix
+              </p>
+            </div>
+            <RoleDonut roles={roleMix} />
+          </OrnateFrame>
+        </div>
+      </section>
+
+      <section className="mt-12">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="hub-section-title">Announcements</h2>
+          <Link
+            href="/dashboard/announcements"
+            className="font-display text-[10px] tracking-[0.2em] text-[#c9a84a]/80 uppercase transition hover:text-[#f0d060]"
+          >
+            View all →
+          </Link>
         </div>
         <OrnateFrame className="overflow-hidden">
           <div className="relative divide-y divide-[#d4af37]/15">
             {announcements.map((a) => (
               <article
                 key={a.id}
-                className="flex flex-col gap-1 px-5 py-5 sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-start sm:justify-between"
               >
-                <div>
+                <div className="min-w-0 flex-1">
+                  {a.image ? (
+                    <div className="mb-3 aspect-video max-w-sm overflow-hidden border border-[#d4af37]/25 bg-black/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={a.image.url}
+                        alt={a.image.alt ?? a.title}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : null}
                   <p className="font-display text-sm tracking-wide text-[#f0d060]">
                     <span className="mr-2 opacity-80">
                       {a.icon === "bell" ? "🔔" : "⚔️"}

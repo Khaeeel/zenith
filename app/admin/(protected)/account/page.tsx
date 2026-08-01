@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import PageHeader from "@/components/dashboard/PageHeader";
 import OrnateFrame from "@/components/dashboard/OrnateFrame";
+import ConfirmForm from "@/components/admin/ConfirmForm";
 import { updateAccountAction } from "@/lib/actions/clans-members";
 
 export default async function AdminAccountPage() {
@@ -20,10 +21,19 @@ export default async function AdminAccountPage() {
         description="Update your display name, email, password, and linked IGN."
       />
       <OrnateFrame className="max-w-xl p-6">
-        <form action={updateAccountAction} className="space-y-4">
+        <ConfirmForm
+          action={updateAccountAction}
+          className="space-y-4"
+          title="Save account"
+          message="Save these account changes?"
+          confirmLabel="Save account"
+        >
           <div>
             <label className="mb-1 block font-display text-[10px] tracking-widest text-[#c9a84a] uppercase">
               Display name
+              <span className="ml-0.5 text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               name="displayName"
@@ -35,6 +45,9 @@ export default async function AdminAccountPage() {
           <div>
             <label className="mb-1 block font-display text-[10px] tracking-widest text-[#c9a84a] uppercase">
               Email
+              <span className="ml-0.5 text-red-400" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               name="email"
@@ -51,7 +64,7 @@ export default async function AdminAccountPage() {
               </label>
               <input
                 name="ign"
-                defaultValue={user.member.name}
+                defaultValue={user.member.ign}
                 className="hub-input"
               />
             </div>
@@ -74,7 +87,7 @@ export default async function AdminAccountPage() {
           <button type="submit" className="hub-btn-filled">
             Save account
           </button>
-        </form>
+        </ConfirmForm>
       </OrnateFrame>
     </div>
   );

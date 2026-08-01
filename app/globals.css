@@ -320,10 +320,13 @@ html.arc-cursor * {
 
 .hub-input {
   width: 100%;
+  min-width: 0;
+  min-height: 2.85rem;
   background: rgba(6, 10, 20, 0.85);
   border: 1px solid rgba(212, 175, 55, 0.35);
   padding: 0.75rem 1rem;
   color: var(--hub-text);
+  line-height: 1.25;
   outline: none;
   transition:
     border-color 0.2s,
@@ -339,20 +342,68 @@ html.arc-cursor * {
   color: rgba(242, 239, 230, 0.3);
 }
 
+/* Native date/time controls — visible icons + working picker on dark UI */
+.hub-input[type="date"],
+.hub-input[type="time"],
+.hub-input[type="datetime-local"] {
+  color-scheme: dark;
+  min-height: 2.85rem;
+  padding-right: 0.65rem;
+}
+
+.hub-input[type="date"]::-webkit-calendar-picker-indicator,
+.hub-input[type="time"]::-webkit-calendar-picker-indicator,
+.hub-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 1;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-left: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 2px;
+  background-color: transparent;
+  /* Gold-tinted icon so it reads on near-black fields */
+  filter: invert(78%) sepia(48%) saturate(550%) hue-rotate(5deg) brightness(105%);
+}
+
+.hub-input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.hub-input[type="time"]::-webkit-calendar-picker-indicator:hover,
+.hub-input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(212, 175, 55, 0.15);
+  filter: invert(85%) sepia(55%) saturate(650%) hue-rotate(2deg) brightness(115%);
+}
+
+.hub-input[type="date"]::-webkit-datetime-edit,
+.hub-input[type="time"]::-webkit-datetime-edit,
+.hub-input[type="datetime-local"]::-webkit-datetime-edit {
+  color: var(--hub-text);
+  padding: 0;
+}
+
+.hub-input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.hub-input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+  color: var(--hub-text);
+}
+
 .hub-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.85rem;
   background: rgba(6, 10, 20, 0.9);
   border: 1px solid rgba(212, 175, 55, 0.4);
-  padding: 0.65rem 0.85rem;
+  padding: 0.75rem 1rem;
   color: var(--hub-gold-soft);
   font-family: var(--font-cinzel), Georgia, serif;
   font-size: 0.65rem;
   letter-spacing: 0.16em;
+  line-height: 1.25;
   text-transform: uppercase;
   outline: none;
 }
 
 .hub-select:focus {
-  border-color: rgba(240, 208, 96, 0.7);
+  border-color: rgba(240, 208, 96, 0.75);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
 }
 
 .hub-btn {
@@ -428,4 +479,123 @@ html.arc-cursor * {
 
 .hub-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* ── Top Clans by Power line chart ── */
+@keyframes power-line-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes power-point-in {
+  from {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes power-seg-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes power-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -90%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%);
+  }
+}
+
+.power-line-draw {
+  animation: power-line-draw 0.85s ease-out forwards;
+  animation-delay: 0.08s;
+}
+
+.power-line-seg {
+  opacity: 0;
+  animation: power-seg-in 0.45s ease-out forwards;
+  animation-delay: 0.35s;
+}
+
+.power-line-point {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: power-point-in 0.4s ease-out forwards;
+  animation-delay: calc(0.55s + var(--i, 0) * 0.055s);
+}
+
+.power-line-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: min(16rem, 90%);
+  padding: 0.4rem 0.65rem;
+  transform: translate(-50%, -100%);
+  background: rgba(8, 12, 22, 0.94);
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(212, 175, 55, 0.12) inset,
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 16px rgba(212, 175, 55, 0.12);
+  animation: power-tooltip-in 0.16s ease-out;
+}
+
+.power-line-tooltip-swatch {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.power-line-tooltip-name {
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f0d060;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.power-line-tooltip-power {
+  font-family: var(--font-cinzel), Georgia, serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: #d4af37;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .power-line-draw,
+  .power-line-seg,
+  .power-line-point,
+  .power-line-tooltip {
+    animation: none !important;
+  }
+
+  .power-line-draw {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+
+  .power-line-seg,
+  .power-line-point {
+    opacity: 1;
+    transform: none;
+  }
 }

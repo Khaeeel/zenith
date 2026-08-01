@@ -35,16 +35,15 @@ export default function HomePage() {
     const refresh = () => {
       void import("gsap/ScrollTrigger").then(({ ScrollTrigger }) => {
         ScrollTrigger.refresh();
-        // Pin-spacers grew the page — unlock Lenis scroll limit
         (
           window as unknown as { __lenis?: { resize: () => void } }
         ).__lenis?.resize();
       });
     };
-    // Staggered refresh — runway width + late WebGL mounts shift pin starts
-    window.setTimeout(refresh, 200);
-    window.setTimeout(refresh, 700);
-    window.setTimeout(refresh, 1600);
+    // One deferred refresh — avoid thrashing during the Apex reveal
+    requestAnimationFrame(() => {
+      window.setTimeout(refresh, 120);
+    });
   }, []);
 
   return (
@@ -56,9 +55,9 @@ export default function HomePage() {
       <Letterbox ready={ready} />
 
       <nav
-        className={`fixed top-0 right-0 left-0 z-50 flex items-center justify-between px-5 py-4 transition-all duration-700 sm:px-8 ${
+        className={`fixed top-0 right-0 left-0 z-50 flex items-center justify-between px-5 py-4 transition-all duration-500 sm:px-8 ${
           ready
-            ? "translate-y-0 bg-black/35 opacity-100 backdrop-blur-md"
+            ? "translate-y-0 bg-black/55 opacity-100"
             : "pointer-events-none -translate-y-4 opacity-0"
         }`}
       >
@@ -90,6 +89,7 @@ export default function HomePage() {
           </Link>
           <Link
             href="/dashboard"
+            prefetch
             data-magnetic
             className="magnetic font-display text-[10px] tracking-widest text-gold/80 uppercase transition hover:text-gold-bright sm:text-xs"
           >

@@ -4,7 +4,7 @@ import ClanHierarchy from "@/components/dashboard/ClanHierarchy";
 import OrnateFrame from "@/components/dashboard/OrnateFrame";
 import { formatNumber, formatPower, getClanBySlug } from "@/lib/tracker/queries";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -101,7 +101,10 @@ export default async function ClanDetailPage({ params }: Props) {
         <h2 className="hub-section-title mb-6">Clan Hierarchy</h2>
         <div id="members" className="scroll-mt-24">
           <OrnateFrame className="px-3 py-6 sm:px-5 sm:py-8" ornate={false}>
-            <ClanHierarchy members={clan.hierarchyMembers} />
+            <ClanHierarchy
+              members={clan.hierarchyMembers}
+              clanName={clan.name}
+            />
           </OrnateFrame>
         </div>
       </section>

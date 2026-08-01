@@ -1,9 +1,80 @@
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { formatPower, formatNumber, relativeTime } from "@/lib/tracker-format";
 
 export { formatPower, formatNumber, relativeTime };
 
-export async function getDashboardStats() {
+export type ClanListItem = {
+  id: string;
+  slug: string;
+  name: string;
+  region: string;
+  serverName: string;
+  serverId: string;
+  allianceName: string | null;
+  allianceId: string | null;
+  players: number;
+  totalPower: number;
+};
+
+/** Deduped within a single request — dashboard used to call this 3×. */
+export const getClansForList = cache(async (): Promise<ClanListItem[]> => {
+  const [clans, memberStats] = await Promise.all([
+    db.clan.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        serverId: true,
+        server: { select: { name: true, region: true } },
+        allianceMemberships: {
+          take: 1,
+          select: {
+            allianceId: true,
+            alliance: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
+    db.member.groupBy({
+      by: ["clanId"],
+      where: { deletedAt: null },
+      _sum: { powerScore: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const statsByClan = new Map(
+    memberStats.map((s) => [
+      s.clanId,
+      {
+        players: s._count._all,
+        totalPower: Number(s._sum.powerScore ?? BigInt(0)),
+      },
+    ]),
+  );
+
+  return clans.map((c) => {
+    const stats = statsByClan.get(c.id) ?? { players: 0, totalPower: 0 };
+    const membership = c.allianceMemberships[0];
+    return {
+      id: c.id,
+      slug: c.slug,
+      name: c.name,
+      region: c.server.region,
+      serverName: c.server.name,
+      serverId: c.serverId,
+      allianceName: membership?.alliance.name ?? null,
+      allianceId: membership?.allianceId ?? null,
+      players: stats.players,
+      totalPower: stats.totalPower,
+    };
+  });
+});
+
+export const getDashboardStats = cache(async () => {
   const [clans, servers, members, powerAgg, activeServers, peaceServers] =
     await Promise.all([
       db.clan.count({ where: { deletedAt: null } }),
@@ -25,42 +96,81 @@ export async function getDashboardStats() {
     peaceServers,
     totalPower: Number(powerAgg._sum.powerScore ?? BigInt(0)),
   };
-}
+});
 
 export async function getAnnouncements(limit = 10) {
   return db.announcement.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, isPublished: true },
     orderBy: { createdAt: "desc" },
     take: limit,
+    select: {
+      id: true,
+      title: true,
+      body: true,
+      icon: true,
+      createdAt: true,
+      image: { select: { id: true, url: true, alt: true } },
+    },
   });
 }
 
-export async function getClansForList() {
-  const clans = await db.clan.findMany({
-    where: { deletedAt: null },
-    include: {
-      server: true,
-      allianceMemberships: { include: { alliance: true } },
-      members: { where: { deletedAt: null }, select: { powerScore: true } },
-    },
-    orderBy: { name: "asc" },
-  });
+export type RoleMixItem = {
+  role: "clan_leader" | "elder" | "master_protector" | "member";
+  label: string;
+  count: number;
+};
 
-  return clans.map((c) => {
-    const totalPower = c.members.reduce((s, m) => s + Number(m.powerScore), 0);
-    return {
-      id: c.id,
-      slug: c.slug,
-      name: c.name,
-      region: c.server.region,
-      serverName: c.server.name,
-      serverId: c.serverId,
-      allianceName: c.allianceMemberships[0]?.alliance.name ?? null,
-      allianceId: c.allianceMemberships[0]?.allianceId ?? null,
-      players: c.members.length,
-      totalPower,
-    };
+const ROLE_LABELS: Record<RoleMixItem["role"], string> = {
+  clan_leader: "Clan Leader",
+  elder: "Elder",
+  master_protector: "Master Protector",
+  member: "Member",
+};
+
+const ROLE_ORDER: RoleMixItem["role"][] = [
+  "clan_leader",
+  "elder",
+  "master_protector",
+  "member",
+];
+
+export const getRoleMix = cache(async (): Promise<RoleMixItem[]> => {
+  const rows = await db.member.groupBy({
+    by: ["role"],
+    where: { deletedAt: null },
+    _count: { _all: true },
   });
+  const byRole = new Map(rows.map((r) => [r.role, r._count._all]));
+  return ROLE_ORDER.map((role) => ({
+    role,
+    label: ROLE_LABELS[role],
+    count: byRole.get(role) ?? 0,
+  }));
+});
+
+/** One fetch for the dashboard overview — avoids 3× getClansForList. */
+export async function getDashboardOverview() {
+  const [stats, clans, alliance, announcements, roleMix] = await Promise.all([
+    getDashboardStats(),
+    getClansForList(),
+    getLatestAlliance(),
+    getAnnouncements(5),
+    getRoleMix(),
+  ]);
+
+  const byPower = [...clans].sort((a, b) => b.totalPower - a.totalPower);
+  const byPlayers = [...clans].sort((a, b) => b.players - a.players);
+
+  return {
+    stats,
+    strongest: byPower[0] ?? null,
+    largest: byPlayers[0] ?? null,
+    topClans: byPower.slice(0, 5),
+    chartClans: byPower.slice(0, 10),
+    roleMix,
+    alliance,
+    announcements,
+  };
 }
 
 export async function getClanBySlug(slug: string) {
@@ -73,7 +183,10 @@ export async function getClanBySlug(slug: string) {
         where: { deletedAt: null },
         orderBy: [{ powerScore: "desc" }],
       },
-      allianceMemberships: { include: { alliance: true } },
+      allianceMemberships: {
+        take: 1,
+        include: { alliance: true },
+      },
       unattackables: {
         include: { protectedClan: { include: { server: true } } },
       },
@@ -88,11 +201,14 @@ export async function getClanBySlug(slug: string) {
     alliance = await db.alliance.findUnique({
       where: { id: allianceId },
       include: {
-        leader: true,
+        leader: { select: { id: true, name: true, slug: true } },
         clans: {
           include: {
             clan: {
-              include: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
                 members: {
                   where: { deletedAt: null },
                   select: { powerScore: true },
@@ -105,8 +221,9 @@ export async function getClanBySlug(slug: string) {
     });
   }
 
-  const allClans = await getClansForList();
-  const ranked = [...allClans].sort((a, b) => b.totalPower - a.totalPower);
+  // Rank without loading every member row again
+  const list = await getClansForList();
+  const ranked = [...list].sort((a, b) => b.totalPower - a.totalPower);
   const rank = ranked.findIndex((c) => c.id === clan.id) + 1;
 
   return {
@@ -117,7 +234,7 @@ export async function getClanBySlug(slug: string) {
     alliance,
     hierarchyMembers: clan.members.map((m) => ({
       id: m.id,
-      name: m.name,
+      name: m.ign,
       power: Number(m.powerScore),
       role:
         m.role === "clan_leader"
@@ -149,11 +266,18 @@ export async function getLargestClan() {
 export async function getLatestAlliance() {
   return db.alliance.findFirst({
     where: { status: "active" },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      updatedAt: true,
       clans: {
-        include: {
+        select: {
           clan: {
-            include: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
               members: {
                 where: { deletedAt: null },
                 select: { powerScore: true },
@@ -190,7 +314,10 @@ export async function getServersAndRegions() {
 }
 
 export async function getAlliancesForFilter() {
-  return db.alliance.findMany({ orderBy: { name: "asc" } });
+  return db.alliance.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 }
 
 export async function getClansForJoin() {

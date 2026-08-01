@@ -1,10 +1,22 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { heroScroll } from "@/lib/mapWorld";
+
+/** Mount children after N frames so the emblem paints first without a hitch. */
+function Deferred({ children, after = 3 }: { children: ReactNode; after?: number }) {
+  const [ready, setReady] = useState(false);
+  const frames = useRef(0);
+  useFrame(() => {
+    if (ready) return;
+    frames.current += 1;
+    if (frames.current >= after) setReady(true);
+  });
+  return ready ? <>{children}</> : null;
+}
 
 /**
  * Brand emblem — real ARC logo (upright) with cinematic gold frame.
@@ -274,7 +286,7 @@ function OrbitRings() {
 
 function EmberStorm() {
   const points = useRef<THREE.Points>(null);
-  const count = 180;
+  const count = 120;
   const velocities = useMemo(() => {
     const v = new Float32Array(count);
     for (let i = 0; i < count; i++) v[i] = 0.15 + (i % 5) * 0.05;
@@ -367,13 +379,18 @@ export default function HeroScene() {
   return (
     <>
       <color attach="background" args={["#020205"]} />
-      <fog attach="fog" args={["#020205", 8, 32]} />
+      <fog attach="fog" args={["#020205", 8, 28]} />
       <CinemaCamera />
-      <FortressCity />
-      <GodRays />
+      {/* Emblem + rings first — city/particles deferred so Apex reveal stays smooth */}
       <OrbitRings />
       <ArcEmblem />
-      <EmberStorm />
+      <Deferred after={2}>
+        <EmberStorm />
+      </Deferred>
+      <Deferred after={5}>
+        <FortressCity />
+        <GodRays />
+      </Deferred>
     </>
   );
 }

@@ -10,6 +10,21 @@ const FEATURED_ICONS = ["⚔", "🏛", "🛡"];
 const WEEKLY_ICONS = ["🐉", "⛰", "⚡", "💎"];
 const SPECIAL_ICONS = ["📣", "👑", "✦", "🕊"];
 
+function formatEventSchedule(ev: {
+  startsAt: Date | null;
+  timezone: string;
+  recurrenceNote: string | null;
+}): string {
+  if (ev.startsAt) {
+    return ev.startsAt.toLocaleString("en-PH", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: ev.timezone || "Asia/Manila",
+    });
+  }
+  return ev.recurrenceNote || "Schedule TBA";
+}
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-5 flex items-center gap-4">
@@ -59,13 +74,7 @@ export default async function DashboardEventsPage() {
                       </p>
                     ) : null}
                     <p className="mt-4 text-sm text-[#c9a84a]">
-                      {ev.recurrenceNote ||
-                        (ev.startsAt
-                          ? ev.startsAt.toLocaleString("en-PH", {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })
-                          : "Schedule TBA")}
+                      {formatEventSchedule(ev)}
                     </p>
                     {ev.badge ? (
                       <span className="mt-4 inline-block border border-[#d4af37]/4 bg-[rgba(212,175,55,0.1)] px-2.5 py-1 font-display text-[9px] tracking-[0.22em] text-[#f0d060] uppercase">
@@ -97,7 +106,7 @@ export default async function DashboardEventsPage() {
                   <div>
                     <p className="font-display text-base text-[#f0d060]">{ev.title}</p>
                     <p className="mt-1 text-sm text-[rgba(242,239,230,0.5)]">
-                      {ev.recurrenceNote}
+                      {formatEventSchedule(ev)}
                     </p>
                   </div>
                 </div>
@@ -120,7 +129,9 @@ export default async function DashboardEventsPage() {
                         {ev.subtitle}
                       </p>
                     ) : null}
-                    <p className="mt-2 text-xs text-[#c9a84a]">{ev.recurrenceNote}</p>
+                    <p className="mt-2 text-xs text-[#c9a84a]">
+                      {formatEventSchedule(ev)}
+                    </p>
                   </div>
                 </OrnateFrame>
               ))}
@@ -140,7 +151,7 @@ export default async function DashboardEventsPage() {
                     {major.title}
                   </p>
                   <p className="mt-1 text-sm text-[rgba(242,239,230,0.5)]">
-                    {major.recurrenceNote}
+                    {formatEventSchedule(major)}
                   </p>
                   <Countdown target={major.startsAt.toISOString()} />
                   <Link

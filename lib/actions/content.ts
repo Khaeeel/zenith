@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { put } from "@vercel/blob";
 import {
   ContactKind,
   EventCategory,
@@ -10,56 +9,39 @@ import {
 } from "@prisma/client";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { saveUploadedImage } from "@/lib/media-upload";
+import { actionFail, actionOk, type ActionResult } from "@/lib/action-result";
 
-export async function uploadMediaAction(formData: FormData) {
-  const session = await requireAdmin();
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return;
-
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const asset = await db.mediaAsset.create({
-      data: {
-        url: "/assets/logo.png",
-        pathname: `local/${Date.now()}-${file.name}`,
-        mimeType: file.type || "application/octet-stream",
-        alt: file.name,
-        uploadedBy: session.user.id,
-      },
-    });
-    if (buffer.length < 80_000) {
-      await db.mediaAsset.update({
-        where: { id: asset.id },
-        data: {
-          url: `data:${file.type};base64,${buffer.toString("base64")}`.slice(
-            0,
-            1900,
-          ),
-        },
-      });
-    }
-    revalidatePath("/admin/events");
-    return;
-  }
-
-  const blob = await put(`uploads/${Date.now()}-${file.name}`, file, {
-    access: "public",
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-  });
-
-  await db.mediaAsset.create({
-    data: {
-      url: blob.url,
-      pathname: blob.pathname,
-      mimeType: file.type || "application/octet-stream",
-      alt: file.name,
-      uploadedBy: session.user.id,
-    },
-  });
-  revalidatePath("/admin/events");
+function revalidateAnnouncements() {
+  revalidatePath("/admin/announcements");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/announcements");
 }
 
-export async function upsertEventAction(formData: FormData) {
+export async function uploadMediaAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await requireAdmin();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return actionFail("Choose an image file to upload.");
+  }
+
+  try {
+    await saveUploadedImage(file, session.user.id);
+  } catch (e) {
+    return actionFail(
+      e instanceof Error ? e.message : "Upload failed.",
+    );
+  }
+  revalidatePath("/admin/events");
+  revalidateAnnouncements();
+  return actionOk();
+}
+
+export async function upsertEventAction(
+  formData: FormData,
+): Promise<ActionResult> {
   await requireAdmin();
   const id = String(formData.get("id") || "");
   const startsAtRaw = String(formData.get("startsAt") || "");
@@ -82,7 +64,7 @@ export async function upsertEventAction(formData: FormData) {
       formData.get("isPublished") === "true",
   };
 
-  if (!data.title) return;
+  if (!data.title) return actionFail("Title is required.");
 
   if (id) {
     await db.event.update({ where: { id }, data });
@@ -93,17 +75,40 @@ export async function upsertEventAction(formData: FormData) {
   revalidatePath("/admin/events");
   revalidatePath("/events");
   revalidatePath("/dashboard/events");
+  return actionOk();
 }
 
-export async function softDeleteEventAction(id: string, _fd?: FormData) {
+export async function softDeleteEventAction(
+  id: string,
+  _fd?: FormData,
+): Promise<ActionResult> {
   await requireAdmin();
   await db.event.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidatePath("/admin/events");
   revalidatePath("/events");
   revalidatePath("/dashboard/events");
+  return actionOk();
 }
 
-export async function upsertContactAction(formData: FormData) {
+export async function setEventVisibilityAction(
+  id: string,
+  isPublished: boolean,
+  _fd?: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+  await db.event.update({
+    where: { id },
+    data: { isPublished },
+  });
+  revalidatePath("/admin/events");
+  revalidatePath("/events");
+  revalidatePath("/dashboard/events");
+  return actionOk();
+}
+
+export async function upsertContactAction(
+  formData: FormData,
+): Promise<ActionResult> {
   await requireAdmin();
   const id = String(formData.get("id") || "");
   const data = {
@@ -122,7 +127,7 @@ export async function upsertContactAction(formData: FormData) {
       formData.get("isPublished") === "true",
   };
 
-  if (!data.title) return;
+  if (!data.title) return actionFail("Title is required.");
 
   if (id) {
     await db.contact.update({ where: { id }, data });
@@ -132,25 +137,53 @@ export async function upsertContactAction(formData: FormData) {
 
   revalidatePath("/admin/contacts");
   revalidatePath("/contact");
+  return actionOk();
 }
 
-export async function softDeleteContactAction(id: string, _fd?: FormData) {
+export async function softDeleteContactAction(
+  id: string,
+  _fd?: FormData,
+): Promise<ActionResult> {
   await requireAdmin();
   await db.contact.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidatePath("/admin/contacts");
   revalidatePath("/contact");
+  return actionOk();
 }
 
-export async function upsertAnnouncementAction(formData: FormData) {
+export async function upsertAnnouncementAction(
+  formData: FormData,
+): Promise<ActionResult> {
   const session = await requireAdmin();
   const id = String(formData.get("id") || "");
+  const clearImage =
+    formData.get("clearImage") === "on" || formData.get("clearImage") === "1";
+  const imageFile = formData.get("image");
+
+  let imageMediaId: string | null | undefined;
+  if (clearImage) {
+    imageMediaId = null;
+  } else if (imageFile instanceof File && imageFile.size > 0) {
+    try {
+      const asset = await saveUploadedImage(imageFile, session.user.id);
+      imageMediaId = asset.id;
+    } catch (e) {
+      return actionFail(
+        e instanceof Error ? e.message : "Image upload failed.",
+      );
+    }
+  }
+
   const data = {
     title: String(formData.get("title") || "").trim(),
     body: String(formData.get("body") || "").trim(),
     icon: String(formData.get("icon") || "bell") as AnnouncementIcon,
     createdBy: session.user.id,
+    ...(imageMediaId !== undefined ? { imageMediaId } : {}),
   };
-  if (!data.title || !data.body) return;
+  if (!data.title || !data.body) {
+    return actionFail("Title and body are required.");
+  }
 
   if (id) {
     await db.announcement.update({ where: { id }, data });
@@ -158,30 +191,53 @@ export async function upsertAnnouncementAction(formData: FormData) {
     await db.announcement.create({ data });
   }
 
-  revalidatePath("/admin/announcements");
-  revalidatePath("/dashboard");
+  revalidateAnnouncements();
+  return actionOk();
 }
 
-export async function softDeleteAnnouncementAction(id: string, _fd?: FormData) {
+export async function softDeleteAnnouncementAction(
+  id: string,
+  _fd?: FormData,
+): Promise<ActionResult> {
   await requireAdmin();
   await db.announcement.update({
     where: { id },
     data: { deletedAt: new Date() },
   });
-  revalidatePath("/admin/announcements");
-  revalidatePath("/dashboard");
+  revalidateAnnouncements();
+  return actionOk();
 }
 
-export async function upsertAllianceAction(formData: FormData) {
+export async function setAnnouncementVisibilityAction(
+  id: string,
+  isPublished: boolean,
+  _fd?: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+  await db.announcement.update({
+    where: { id },
+    data: { isPublished },
+  });
+  revalidateAnnouncements();
+  return actionOk();
+}
+
+export async function upsertAllianceAction(
+  formData: FormData,
+): Promise<ActionResult> {
   const session = await requireAdmin();
-  if (session.user.appRole !== "super_admin") return;
+  if (session.user.appRole !== "super_admin") {
+    return actionFail("Only super admins can manage alliances.");
+  }
 
   const id = String(formData.get("id") || "");
   const name = String(formData.get("name") || "").trim();
   const leaderClanId = String(formData.get("leaderClanId") || "");
   const clanIds = formData.getAll("clanIds").map(String);
 
-  if (!name || !leaderClanId) return;
+  if (!name || !leaderClanId) {
+    return actionFail("Alliance name and leader clan are required.");
+  }
 
   if (id) {
     await db.alliance.update({
@@ -208,4 +264,5 @@ export async function upsertAllianceAction(formData: FormData) {
 
   revalidatePath("/admin/alliances");
   revalidatePath("/dashboard");
+  return actionOk();
 }

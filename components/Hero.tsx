@@ -25,6 +25,8 @@ export default function Hero({ ready }: HeroProps) {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setUse3d(false);
     }
+    // Prefetch scene chunk as early as possible
+    void import("./three/HeroScene");
   }, []);
 
   useEffect(() => {
@@ -33,44 +35,49 @@ export default function Hero({ ready }: HeroProps) {
 
     heroScroll.progress = 0;
 
-    const ctx = gsap.context(() => {
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: "top top",
-        end: "+=125%",
-        pin: true,
-        scrub: 0.9,
-        anticipatePin: 1,
-        onUpdate: (self) => {
-          heroScroll.progress = self.progress;
-        },
-        onRefresh: (self) => {
-          heroScroll.progress = self.progress;
-        },
-      });
-
-      if (contentRef.current) {
-        // Fade text out early so scroll dive never covers unreadable gold-on-gold
-        gsap.fromTo(
-          contentRef.current,
-          { opacity: 1, y: 0 },
-          {
-            opacity: 0,
-            y: 40,
-            ease: "none",
-            scrollTrigger: {
-              trigger: sectionRef.current,
-              start: "top top",
-              end: "+=35%",
-              scrub: true,
-            },
+    // Defer pin setup one frame so it doesn't compete with the reveal paint
+    let ctx: gsap.Context | null = null;
+    const id = requestAnimationFrame(() => {
+      if (!sectionRef.current) return;
+      ctx = gsap.context(() => {
+        ScrollTrigger.create({
+          trigger: sectionRef.current,
+          start: "top top",
+          end: "+=125%",
+          pin: true,
+          scrub: 0.9,
+          anticipatePin: 1,
+          onUpdate: (self) => {
+            heroScroll.progress = self.progress;
           },
-        );
-      }
-    }, sectionRef);
+          onRefresh: (self) => {
+            heroScroll.progress = self.progress;
+          },
+        });
+
+        if (contentRef.current) {
+          gsap.fromTo(
+            contentRef.current,
+            { opacity: 1, y: 0 },
+            {
+              opacity: 0,
+              y: 40,
+              ease: "none",
+              scrollTrigger: {
+                trigger: sectionRef.current,
+                start: "top top",
+                end: "+=35%",
+                scrub: true,
+              },
+            },
+          );
+        }
+      }, sectionRef);
+    });
 
     return () => {
-      ctx.revert();
+      cancelAnimationFrame(id);
+      ctx?.revert();
       heroScroll.progress = 0;
     };
   }, [ready]);
@@ -84,9 +91,9 @@ export default function Hero({ ready }: HeroProps) {
       <div className="absolute inset-0">
         {use3d ? (
           <Canvas
-            camera={{ position: [0, 0.65, 6.2], fov: 40, near: 0.1, far: 120 }}
-            dpr={[1, 1.5]}
-            performance={{ min: 0.5 }}
+            camera={{ position: [0, 0.65, 6.2], fov: 40, near: 0.1, far: 80 }}
+            dpr={[1, 1.25]}
+            performance={{ min: 0.5, debounce: 200 }}
             gl={{
               antialias: false,
               alpha: false,
@@ -106,10 +113,7 @@ export default function Hero({ ready }: HeroProps) {
         )}
       </div>
 
-      {/* Top fade — keeps eyebrow readable */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-28 bg-gradient-to-b from-black/70 to-transparent" />
-
-      {/* Solid title band — emblem stays above this, text stays readable */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[42%] bg-gradient-to-t from-black via-black/90 to-transparent" />
 
       <div
@@ -118,9 +122,9 @@ export default function Hero({ ready }: HeroProps) {
       >
         <motion.div
           className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 text-center"
-          initial={{ opacity: 0, y: 36 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={ready ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 1.2, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.7, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
         >
           <p className="font-display text-[10px] tracking-[0.5em] text-gold/80 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] sm:text-xs">
             Chapter 01 · Origin · MIR4

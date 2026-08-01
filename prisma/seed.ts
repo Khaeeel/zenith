@@ -1,26 +1,9 @@
 import "dotenv/config";
-import { PrismaClient, ClanRole, EventCategory, EventRecurrence, ContactKind } from "@prisma/client";
+import { PrismaClient, EventCategory, EventRecurrence, ContactKind } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { loadHofGamerPlayers, toMemberCreates } from "./hofgamer-roster";
 
 const db = new PrismaClient();
-
-const ELDER_NAMES = [
-  "ShadowVein", "GoldFang", "NightBloom", "IronPulse", "StormReed",
-  "VoidLance", "CrimsonOwl", "SilverRune", "DawnBreaker",
-];
-
-const MP_NAMES = ["IronPulse", "StormReed", "VoidLance", "CrimsonOwl"];
-
-const MEMBER_NAMES = [
-  "AshWalker", "FrostBite", "MoonSlayer", "ThunderFox", "BladeDancer",
-  "SoulForge", "NightHawk", "EmberLily", "StoneGuard", "WindReaper",
-  "BloodOrchid", "StarPiercer", "DarkWarden", "LightSpear", "JadeTiger",
-  "PhantomAxe", "CrystalFang", "RavenKing", "SolarFlint", "IceWarden",
-  "FlameNest", "DustRider", "SkyHarpoon", "GraveSong", "LotusBlade",
-  "IronPetal", "StormCrow", "SilentOath", "GoldTempest", "BlueMonk",
-  "RedCinder", "PaleKnight", "ArcWarden", "MythSpear", "NovaFang",
-  "ShadeHowl", "BrightCoil", "ObsidianFox", "TrueNorth", "ZenithRay",
-];
 
 async function main() {
   console.log("Seeding…");
@@ -53,7 +36,6 @@ async function main() {
   );
 
   const asia01 = servers.find((s) => s.name === "ASIA-01")!;
-  const asia02 = servers.find((s) => s.name === "ASIA-02")!;
 
   const zenith = await db.clan.create({
     data: {
@@ -71,158 +53,18 @@ async function main() {
     },
   });
 
-  const dragon = await db.clan.create({
-    data: {
-      slug: "dragonlegion",
-      name: "DragonLegion",
-      serverId: asia01.id,
-      resources: {
-        create: {
-          clanFund: 9_210_400n,
-          darksteel: 6_102_000n,
-          clanEnergy: 3_100_000n,
-          energyCapacityPct: 74,
-        },
-      },
-    },
+  // Real Zenith roster from HofGamer export (no fake sample members)
+  const hofPlayers = loadHofGamerPlayers();
+  await db.member.createMany({
+    data: toMemberCreates(zenith.id, hofPlayers),
   });
-
-  const immortal = await db.clan.create({
-    data: {
-      slug: "immortal",
-      name: "Immortal",
-      serverId: asia02.id,
-      resources: {
-        create: {
-          clanFund: 7_540_000n,
-          darksteel: 4_880_000n,
-          clanEnergy: 2_640_000n,
-          energyCapacityPct: 68,
-        },
-      },
-    },
+  const leader = await db.member.findFirst({
+    where: { clanId: zenith.id, role: "clan_leader" },
   });
-
-  const phoenix = await db.clan.create({
-    data: {
-      slug: "phoenix",
-      name: "Phoenix",
-      serverId: asia01.id,
-      resources: {
-        create: {
-          clanFund: 5_920_000n,
-          darksteel: 3_740_000n,
-          clanEnergy: 2_100_000n,
-          energyCapacityPct: 61,
-        },
-      },
-    },
-  });
-
-  for (const [slug, name, serverId, power] of [
-    ["xyz", "XYZ", asia02.id, 16_800_000n],
-    ["abc", "ABC", asia01.id, 15_900_000n],
-  ] as const) {
-    await db.clan.create({
-      data: {
-        slug,
-        name,
-        serverId,
-        resources: {
-          create: {
-            clanFund: 8_000_000n,
-            darksteel: 5_000_000n,
-            clanEnergy: 2_800_000n,
-            energyCapacityPct: 70,
-          },
-        },
-        members: {
-          create: [
-            { name: `${name}Lead`, role: ClanRole.clan_leader, powerScore: power / 10n, classId: "warrior" },
-            { name: `${name}Elder`, role: ClanRole.elder, powerScore: power / 12n, classId: "lancer" },
-            { name: `${name}Mem`, role: ClanRole.member, powerScore: power / 15n, classId: "sorcerer" },
-          ],
-        },
-      },
-    });
-  }
-
-  const leader = await db.member.create({
-    data: {
-      clanId: zenith.id,
-      name: "ApexPrime",
-      role: ClanRole.clan_leader,
-      powerScore: 1_842_420n,
-      classId: "warrior",
-    },
-  });
-
-  const elders = [];
-  for (let i = 0; i < ELDER_NAMES.length; i++) {
-    elders.push(
-      await db.member.create({
-        data: {
-          clanId: zenith.id,
-          name: ELDER_NAMES[i],
-          role: ClanRole.elder,
-          powerScore: BigInt(1_520_000 - i * 28_000),
-          classId: "lancer",
-        },
-      }),
-    );
-  }
-
-  for (let i = 0; i < MP_NAMES.length; i++) {
-    await db.member.create({
-      data: {
-        clanId: zenith.id,
-        name: `${MP_NAMES[i]}MP`,
-        role: ClanRole.master_protector,
-        powerScore: BigInt(1_280_000 - i * 20_000),
-        classId: "taoist",
-      },
-    });
-  }
-
-  for (let i = 0; i < MEMBER_NAMES.length; i++) {
-    await db.member.create({
-      data: {
-        clanId: zenith.id,
-        name: MEMBER_NAMES[i],
-        role: ClanRole.member,
-        powerScore: BigInt(1_180_000 - i * 14_500),
-        classId: "arbalist",
-      },
-    });
-  }
-
-  await db.member.create({
-    data: {
-      clanId: dragon.id,
-      name: "DragonLord",
-      role: ClanRole.clan_leader,
-      powerScore: 1_710_200n,
-      classId: "warrior",
-    },
-  });
-  await db.member.create({
-    data: {
-      clanId: immortal.id,
-      name: "EternalOne",
-      role: ClanRole.clan_leader,
-      powerScore: 1_520_000n,
-      classId: "darkist",
-    },
-  });
-  await db.member.create({
-    data: {
-      clanId: phoenix.id,
-      name: "Reborn",
-      role: ClanRole.clan_leader,
-      powerScore: 1_340_000n,
-      classId: "sorcerer",
-    },
-  });
+  if (!leader) throw new Error("Zenith leader missing after HofGamer import");
+  console.log(
+    `Zenith members: ${hofPlayers.length} (leader ${leader.ign})`,
+  );
 
   const alliance = await db.alliance.create({
     data: {
@@ -230,23 +72,11 @@ async function main() {
       leaderClanId: zenith.id,
       status: "active",
       clans: {
-        create: [
-          { clanId: zenith.id },
-          { clanId: dragon.id },
-          { clanId: immortal.id },
-          { clanId: phoenix.id },
-        ],
+        create: [{ clanId: zenith.id }],
       },
     },
   });
   void alliance;
-
-  await db.clanUnattackable.createMany({
-    data: [
-      { clanId: zenith.id, protectedClanId: phoenix.id, protectionType: "alliance" },
-      { clanId: zenith.id, protectedClanId: immortal.id, protectionType: "peace" },
-    ],
-  });
 
   await db.announcement.createMany({
     data: [
@@ -311,48 +141,6 @@ async function main() {
         badge: "Daily",
         sortOrder: 1,
       },
-      {
-        category: EventCategory.weekly,
-        title: "Secret Peak",
-        recurrence: EventRecurrence.daily,
-        recurrenceNote: "Daily · reset windows",
-        badge: "Daily",
-        sortOrder: 2,
-      },
-      {
-        category: EventCategory.weekly,
-        title: "Energy Raid",
-        recurrence: EventRecurrence.weekly,
-        recurrenceNote: "Wed · 9:00 PM PH",
-        badge: "Weekly",
-        sortOrder: 3,
-      },
-      {
-        category: EventCategory.weekly,
-        title: "Darksteel Run",
-        recurrence: EventRecurrence.weekly,
-        recurrenceNote: "Thu · 10:00 PM PH",
-        badge: "Weekly",
-        sortOrder: 4,
-      },
-      {
-        category: EventCategory.special,
-        title: "Recruitment Drive",
-        subtitle: "Grow our ranks. Stronger together.",
-        recurrence: EventRecurrence.as_announced,
-        recurrenceNote: "As Announced",
-        badge: "Special",
-        sortOrder: 1,
-      },
-      {
-        category: EventCategory.special,
-        title: "Alliance Summit",
-        subtitle: "Leadership coordination meeting",
-        recurrence: EventRecurrence.as_announced,
-        recurrenceNote: "As Announced",
-        badge: "Special",
-        sortOrder: 2,
-      },
     ],
   });
 
@@ -361,8 +149,8 @@ async function main() {
       {
         kind: ContactKind.office,
         title: "1. RECRUITMENT OFFICE",
-        personName: "ApexPrime",
-        discordHandle: "apexprime",
+        personName: leader.ign,
+        discordHandle: "recruitment",
         email: "recruit@arc-zenith.local",
         description: "Applications, tryouts, and new member onboarding.",
         sortOrder: 1,
@@ -370,8 +158,8 @@ async function main() {
       {
         kind: ContactKind.office,
         title: "2. ALLIANCE DESK",
-        personName: "ShadowVein",
-        discordHandle: "shadowvein",
+        personName: "Alliance Desk",
+        discordHandle: "alliance",
         email: "alliance@arc-zenith.local",
         description: "Alliance coordination, diplomacy, and war planning.",
         sortOrder: 2,
@@ -379,8 +167,8 @@ async function main() {
       {
         kind: ContactKind.office,
         title: "3. EVENTS OFFICE",
-        personName: "GoldFang",
-        discordHandle: "goldfang",
+        personName: "Events Desk",
+        discordHandle: "events",
         email: "events@arc-zenith.local",
         description: "Event schedules, sign-ups, and officer coordination.",
         sortOrder: 3,
@@ -388,8 +176,8 @@ async function main() {
       {
         kind: ContactKind.office,
         title: "4. SUPPORT",
-        personName: "NightBloom",
-        discordHandle: "nightbloom",
+        personName: "Support Desk",
+        discordHandle: "support",
         email: "support@arc-zenith.local",
         description: "General inquiries and member assistance.",
         sortOrder: 4,
@@ -443,37 +231,9 @@ async function main() {
     data: {
       email: "zenith.leader@arc-zenith.local",
       passwordHash,
-      displayName: "ApexPrime",
+      displayName: leader.ign,
       appRole: "clan_admin",
-      memberId: null,
       clanId: zenith.id,
-    },
-  });
-
-  // Re-link second admin to an elder after unique member constraint
-  await db.user.update({
-    where: { email: "zenith.leader@arc-zenith.local" },
-    data: { memberId: elders[0].id },
-  });
-
-  await db.user.create({
-    data: {
-      email: "zenith.elder@arc-zenith.local",
-      passwordHash,
-      displayName: "GoldFang",
-      appRole: "clan_admin",
-      memberId: elders[1].id,
-      clanId: zenith.id,
-    },
-  });
-
-  await db.user.create({
-    data: {
-      email: "dragon.admin@arc-zenith.local",
-      passwordHash,
-      displayName: "DragonLord",
-      appRole: "clan_admin",
-      clanId: dragon.id,
     },
   });
 
@@ -481,8 +241,6 @@ async function main() {
   console.log("Admins (password from SEED_ADMIN_PASSWORD):");
   console.log("  admin@arc-zenith.local (super_admin)");
   console.log("  zenith.leader@arc-zenith.local");
-  console.log("  zenith.elder@arc-zenith.local");
-  console.log("  dragon.admin@arc-zenith.local");
 }
 
 main()

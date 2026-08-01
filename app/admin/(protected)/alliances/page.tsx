@@ -2,6 +2,8 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import PageHeader from "@/components/dashboard/PageHeader";
 import OrnateFrame from "@/components/dashboard/OrnateFrame";
+import ConfirmForm from "@/components/admin/ConfirmForm";
+import AdminField from "@/components/admin/AdminField";
 import { upsertAllianceAction } from "@/lib/actions/content";
 
 export default async function AdminAlliancesPage() {
@@ -19,29 +21,41 @@ export default async function AdminAlliancesPage() {
       <PageHeader title="Alliances" description="Assign clans and set alliance leaders." />
 
       <OrnateFrame className="mb-8 p-5">
-        <form action={upsertAllianceAction} className="grid gap-3">
-          <input name="name" placeholder="Alliance name" className="hub-input" required />
-          <select name="leaderClanId" className="hub-select" required defaultValue="">
-            <option value="" disabled>
-              Leader clan
-            </option>
-            {clans.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+        <ConfirmForm
+          action={upsertAllianceAction}
+          className="grid gap-3"
+          title="Create alliance"
+          message="Create this alliance with the selected clans?"
+          confirmLabel="Create"
+        >
+          <AdminField label="Alliance name" required>
+            <input name="name" placeholder="Alliance name" className="hub-input" required />
+          </AdminField>
+          <AdminField label="Leader clan" required>
+            <select name="leaderClanId" className="hub-select" required defaultValue="">
+              <option value="" disabled>
+                Select leader clan
               </option>
-            ))}
-          </select>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {clans.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-sm text-[#c9a84a]">
-                <input type="checkbox" name="clanIds" value={c.id} /> {c.name}
-              </label>
-            ))}
-          </div>
+              {clans.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </AdminField>
+          <AdminField label="Member clans">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {clans.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm text-[#c9a84a]">
+                  <input type="checkbox" name="clanIds" value={c.id} /> {c.name}
+                </label>
+              ))}
+            </div>
+          </AdminField>
           <button type="submit" className="hub-btn-filled">
             Create alliance
           </button>
-        </form>
+        </ConfirmForm>
       </OrnateFrame>
 
       <div className="space-y-4">
@@ -49,7 +63,13 @@ export default async function AdminAlliancesPage() {
           const memberIds = new Set(a.clans.map((c) => c.clanId));
           return (
             <OrnateFrame key={a.id} className="p-5" ornate={false}>
-              <form action={upsertAllianceAction} className="grid gap-3">
+              <ConfirmForm
+                action={upsertAllianceAction}
+                className="grid gap-3"
+                title="Save alliance"
+                message={`Save changes to ${a.name}?`}
+                confirmLabel="Save"
+              >
                 <input type="hidden" name="id" value={a.id} />
                 <input name="name" defaultValue={a.name} className="hub-input" />
                 <select
@@ -82,7 +102,7 @@ export default async function AdminAlliancesPage() {
                 <button type="submit" className="hub-btn">
                   Save alliance
                 </button>
-              </form>
+              </ConfirmForm>
             </OrnateFrame>
           );
         })}

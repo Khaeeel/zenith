@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { formatPower, type TrackerPlayer } from "@/lib/tracker-data";
+import { useMemo, useState, type ReactNode } from "react";
+import HubSearchInput, {
+  matchesSearch,
+} from "@/components/dashboard/HubSearchInput";
+import { formatPower, type TrackerPlayer } from "@/lib/tracker-format";
 
 function Avatar({
   name,
@@ -185,56 +188,90 @@ function TreeFork() {
 
 export default function ClanHierarchy({
   members,
+  clanName,
 }: {
   members: TrackerPlayer[];
+  /** When set, search also matches this clan name. */
+  clanName?: string;
 }) {
-  const leader = members.find((m) => m.role === "Clan Leader");
-  const elders = members.filter((m) => m.role === "Elder");
-  const protectors = members.filter((m) => m.role === "Master Protector");
-  const regular = members.filter((m) => m.role === "Member");
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim();
+    if (!q) return members;
+    const clanMatches = clanName ? matchesSearch(query, clanName) : false;
+    if (clanMatches) return members;
+    return members.filter((m) => matchesSearch(query, m.name));
+  }, [members, query, clanName]);
+
+  const leader = filtered.find((m) => m.role === "Clan Leader");
+  const elders = filtered.filter((m) => m.role === "Elder");
+  const protectors = filtered.filter((m) => m.role === "Master Protector");
+  const regular = filtered.filter((m) => m.role === "Member");
+  const empty = filtered.length === 0;
 
   return (
     <div className="relative">
-      {leader ? (
-        <div className="relative z-10">
-          <LeaderCard player={leader} />
-        </div>
-      ) : null}
+      <div className="mb-5">
+        <HubSearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search by IGN or clan…"
+          aria-label="Search members by IGN or clan"
+        />
+        {query.trim() ? (
+          <p className="mt-2 text-xs text-[rgba(242,239,230,0.45)]">
+            {empty
+              ? `No members match “${query.trim()}”.`
+              : `${filtered.length} of ${members.length} members`}
+          </p>
+        ) : null}
+      </div>
 
-      <TreeStem />
-      <TreeFork />
+      {empty ? null : (
+        <>
+          {leader ? (
+            <div className="relative z-10">
+              <LeaderCard player={leader} />
+            </div>
+          ) : null}
 
-      <BranchSection label="Elder" count={elders.length} defaultOpen>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {elders.map((p) => (
-            <RankCard key={p.id} player={p} showTitle />
-          ))}
-        </div>
-      </BranchSection>
+          <TreeStem />
+          <TreeFork />
 
-      <TreeStem tall />
+          <BranchSection label="Elder" count={elders.length} defaultOpen>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {elders.map((p) => (
+                <RankCard key={p.id} player={p} showTitle />
+              ))}
+            </div>
+          </BranchSection>
 
-      <BranchSection
-        label="Master Protector"
-        count={protectors.length}
-        defaultOpen
-      >
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {protectors.map((p) => (
-            <RankCard key={p.id} player={p} showTitle />
-          ))}
-        </div>
-      </BranchSection>
+          <TreeStem tall />
 
-      <TreeStem tall />
+          <BranchSection
+            label="Master Protector"
+            count={protectors.length}
+            defaultOpen
+          >
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {protectors.map((p) => (
+                <RankCard key={p.id} player={p} showTitle />
+              ))}
+            </div>
+          </BranchSection>
 
-      <BranchSection label="Clan Member" count={regular.length} defaultOpen>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {regular.map((p) => (
-            <RankCard key={p.id} player={p} />
-          ))}
-        </div>
-      </BranchSection>
+          <TreeStem tall />
+
+          <BranchSection label="Clan Member" count={regular.length} defaultOpen>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {regular.map((p) => (
+                <RankCard key={p.id} player={p} />
+              ))}
+            </div>
+          </BranchSection>
+        </>
+      )}
     </div>
   );
 }

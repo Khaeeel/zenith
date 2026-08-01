@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import PageHeader from "@/components/dashboard/PageHeader";
 import OrnateFrame from "@/components/dashboard/OrnateFrame";
 import AdminCollapsible from "@/components/admin/AdminCollapsible";
+import ConfirmForm from "@/components/admin/ConfirmForm";
+import AdminField from "@/components/admin/AdminField";
 import {
   softDeleteContactAction,
   upsertContactAction,
@@ -72,20 +74,35 @@ export default async function AdminContactsPage() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <form
-                    action={updateApplicationStatusAction.bind(null, a.id, "accepted")}
+                  <ConfirmForm
+                    action={updateApplicationStatusAction.bind(
+                      null,
+                      a.id,
+                      "accepted",
+                    )}
+                    title="Accept application"
+                    message={`Accept ${a.ign}'s application to ${a.clan.name}?`}
+                    confirmLabel="Accept"
                   >
                     <button type="submit" className="hub-btn-filled">
                       Accept
                     </button>
-                  </form>
-                  <form
-                    action={updateApplicationStatusAction.bind(null, a.id, "rejected")}
+                  </ConfirmForm>
+                  <ConfirmForm
+                    action={updateApplicationStatusAction.bind(
+                      null,
+                      a.id,
+                      "rejected",
+                    )}
+                    title="Reject application"
+                    message={`Reject ${a.ign}'s application?`}
+                    confirmLabel="Reject"
+                    tone="danger"
                   >
                     <button type="submit" className="hub-btn">
                       Reject
                     </button>
-                  </form>
+                  </ConfirmForm>
                 </div>
               </div>
             </OrnateFrame>
@@ -108,12 +125,22 @@ export default async function AdminContactsPage() {
           subtitle="Create a new office or channel card"
           defaultOpen={false}
         >
-          <form action={upsertContactAction} className="grid gap-3 sm:grid-cols-2">
-            <select name="kind" className="hub-select" defaultValue="office">
-              <option value="office">Office</option>
-              <option value="channel">Channel</option>
-            </select>
-            <input name="title" placeholder="Title" className="hub-input" required />
+          <ConfirmForm
+            action={upsertContactAction}
+            className="grid gap-3 sm:grid-cols-2"
+            title="Create contact"
+            message="Create this contact card?"
+            confirmLabel="Create"
+          >
+            <AdminField label="Kind">
+              <select name="kind" className="hub-select" defaultValue="office">
+                <option value="office">Office</option>
+                <option value="channel">Channel</option>
+              </select>
+            </AdminField>
+            <AdminField label="Title" required>
+              <input name="title" placeholder="Title" className="hub-input" required />
+            </AdminField>
             <input name="personName" placeholder="Person name" className="hub-input" />
             <input name="discordHandle" placeholder="Discord" className="hub-input" />
             <input name="email" type="email" placeholder="Email" className="hub-input" />
@@ -128,7 +155,7 @@ export default async function AdminContactsPage() {
             <button type="submit" className="hub-btn-filled sm:col-span-2">
               Create
             </button>
-          </form>
+          </ConfirmForm>
         </AdminCollapsible>
 
         {contacts.map((c) => (
@@ -140,7 +167,13 @@ export default async function AdminContactsPage() {
             }`}
             defaultOpen={false}
           >
-            <form action={upsertContactAction} className="grid gap-2 sm:grid-cols-2">
+            <ConfirmForm
+              action={upsertContactAction}
+              className="grid gap-2 sm:grid-cols-2"
+              title="Save contact"
+              message={`Save changes to “${c.title}”?`}
+              confirmLabel="Save"
+            >
               <input type="hidden" name="id" value={c.id} />
               <select name="kind" defaultValue={c.kind} className="hub-select">
                 <option value="office">Office</option>
@@ -188,12 +221,19 @@ export default async function AdminContactsPage() {
               <button type="submit" className="hub-btn sm:col-span-2">
                 Save card
               </button>
-            </form>
-            <form action={softDeleteContactAction.bind(null, c.id)} className="mt-2">
+            </ConfirmForm>
+            <ConfirmForm
+              action={softDeleteContactAction.bind(null, c.id)}
+              className="mt-2"
+              title="Delete contact"
+              message={`Soft delete “${c.title}”?`}
+              confirmLabel="Delete"
+              tone="danger"
+            >
               <button type="submit" className="text-xs text-red-400/80">
                 Soft delete
               </button>
-            </form>
+            </ConfirmForm>
           </AdminCollapsible>
         ))}
       </section>

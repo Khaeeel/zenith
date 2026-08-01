@@ -104,20 +104,12 @@ export const CLANS: Clan[] = [
     landmark: "sacred_grove",
   },
   {
-    id: "zenith-x",
-    name: "Zenith X",
+    id: "zenith-sza",
+    name: "Zenith Sza",
     x: 20,
     y: 72,
     tagline: "The unknown variable",
     landmark: "cliff_fort",
-  },
-  {
-    id: "sza",
-    name: "Zenith SZA",
-    x: 24,
-    y: 44,
-    tagline: "Storms that never end",
-    landmark: "valley_shrine",
   },
 ];
 
@@ -128,6 +120,7 @@ export const MIR4_CLASSES = [
   { id: "lancer", name: "Lancer", icon: "🔱" },
   { id: "arbalist", name: "Arbalist", icon: "🏹" },
   { id: "darkist", name: "Darkist", icon: "☠" },
+  { id: "lionheart", name: "Lionheart", icon: "🦁" },
 ] as const;
 
 export type Mir4Class = (typeof MIR4_CLASSES)[number]["id"];

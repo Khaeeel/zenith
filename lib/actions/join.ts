@@ -94,4 +94,5 @@ export async function updateApplicationStatusAction(
   await db.joinApplication.update({ where: { id }, data: { status } });
   revalidatePath("/admin/applications");
   revalidatePath("/admin/contacts");
+  return { ok: true as const };
 }

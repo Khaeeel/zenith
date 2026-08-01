@@ -141,7 +141,8 @@ model ClanResources {
 model Member {
   id         String    @id @default(cuid())
   clanId     String    @map("clan_id")
-  name       String
+  ign        String
+  ignId      String?   @map("ign_id")
   role       ClanRole  @default(member)
   powerScore BigInt    @map("power_score")
   classId    String?   @map("class_id")
@@ -153,7 +154,8 @@ model Member {
   user User?
 
   @@index([clanId, role])
-  @@index([clanId, name])
+  @@index([clanId, ign])
+  @@unique([clanId, ignId])
   @@map("members")
 }
 
@@ -198,17 +200,20 @@ model ClanUnattackable {
 }
 
 model Announcement {
-  id        String           @id @default(cuid())
-  title     String
-  body      String
-  icon      AnnouncementIcon @default(bell)
-  clanId    String?          @map("clan_id")
-  createdBy String?          @map("created_by")
-  createdAt DateTime         @default(now()) @map("created_at")
-  deletedAt DateTime?        @map("deleted_at")
+  id           String           @id @default(cuid())
+  title        String
+  body         String
+  icon         AnnouncementIcon @default(bell)
+  imageMediaId String?          @map("image_media_id")
+  isPublished  Boolean          @default(true) @map("is_published")
+  clanId       String?          @map("clan_id")
+  createdBy    String?          @map("created_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  deletedAt    DateTime?        @map("deleted_at")
 
-  clan    Clan? @relation(fields: [clanId], references: [id])
-  creator User? @relation("AnnouncementCreatedBy", fields: [createdBy], references: [id])
+  clan    Clan?       @relation(fields: [clanId], references: [id])
+  creator User?       @relation("AnnouncementCreatedBy", fields: [createdBy], references: [id])
+  image   MediaAsset? @relation("AnnouncementImage", fields: [imageMediaId], references: [id])
 
   @@map("announcements")
 }
@@ -222,10 +227,11 @@ model MediaAsset {
   uploadedBy String?  @map("uploaded_by")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  uploader User?     @relation("MediaUploadedBy", fields: [uploadedBy], references: [id])
-  clans    Clan[]    @relation("ClanEmblem")
-  events   Event[]   @relation("EventIcon")
-  contacts Contact[] @relation("ContactIcon")
+  uploader      User?          @relation("MediaUploadedBy", fields: [uploadedBy], references: [id])
+  clans         Clan[]         @relation("ClanEmblem")
+  events        Event[]        @relation("EventIcon")
+  contacts      Contact[]      @relation("ContactIcon")
+  announcements Announcement[] @relation("AnnouncementImage")
 
   @@map("media_assets")
 }

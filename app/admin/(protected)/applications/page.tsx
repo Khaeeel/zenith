@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import PageHeader from "@/components/dashboard/PageHeader";
 import OrnateFrame from "@/components/dashboard/OrnateFrame";
+import ConfirmForm from "@/components/admin/ConfirmForm";
 import { updateApplicationStatusAction } from "@/lib/actions/join";
 
 export default async function AdminApplicationsPage() {
@@ -39,20 +40,27 @@ export default async function AdminApplicationsPage() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <form
+                <ConfirmForm
                   action={updateApplicationStatusAction.bind(null, a.id, "accepted")}
+                  title="Accept application"
+                  message={`Accept ${a.ign}'s application to ${a.clan.name}?`}
+                  confirmLabel="Accept"
                 >
                   <button type="submit" className="hub-btn-filled">
                     Accept
                   </button>
-                </form>
-                <form
+                </ConfirmForm>
+                <ConfirmForm
                   action={updateApplicationStatusAction.bind(null, a.id, "rejected")}
+                  title="Reject application"
+                  message={`Reject ${a.ign}'s application?`}
+                  confirmLabel="Reject"
+                  tone="danger"
                 >
                   <button type="submit" className="hub-btn">
                     Reject
                   </button>
-                </form>
+                </ConfirmForm>
               </div>
             </div>
           </OrnateFrame>

@@ -39,7 +39,6 @@ npm run dev
 
 - admin@arc-zenith.local (super_admin)
 - zenith.leader@arc-zenith.local
-- zenith.elder@arc-zenith.local
 - dragon.admin@arc-zenith.local
 
 Password: `ChangeMe123!` (or `SEED_ADMIN_PASSWORD`)

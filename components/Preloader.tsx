@@ -12,14 +12,15 @@ type PreloaderProps = {
 let bootFinished = false;
 
 /**
- * Boot slate — counts once, then lifts away.
- * bootFinished is set synchronously so interrupted timers can't leave a stuck overlay.
+ * Boot slate — short count, then lifts away.
+ * Heavy CSS filters avoided so the 0→100 run stays smooth.
  */
 export default function Preloader({ onComplete }: PreloaderProps) {
   const [visible, setVisible] = useState(() => !bootFinished);
   const [phase, setPhase] = useState<"load" | "reveal">("load");
   const counterRef = useRef<HTMLParagraphElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     if (bootFinished) {
@@ -51,19 +52,20 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       return;
     }
 
+    // Warm hero WebGL + logo while the counter runs
+    void import("@/components/three/HeroScene");
+    const warm = new window.Image();
+    warm.src = "/assets/logo.png";
+
     let raf = 0;
     let cancelled = false;
     const start = performance.now();
-    const duration = 1500;
+    const duration = 900;
     const timers: number[] = [];
 
-    const complete = () => {
-      if (bootFinished) {
-        setVisible(false);
-        unlock();
-        onComplete();
-        return;
-      }
+    const finish = () => {
+      if (completedRef.current) return;
+      completedRef.current = true;
       bootFinished = true;
       if (counterRef.current) counterRef.current.textContent = "100";
       if (barRef.current) barRef.current.style.width = "100%";
@@ -71,15 +73,15 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       setVisible(false);
       window.scrollTo(0, 0);
       unlock();
-      // Tiny delay so exit animation can paint, then notify parent
-      const id = window.setTimeout(() => onComplete(), 80);
-      timers.push(id);
+      // Notify parent immediately so Apex can mount/animate under the fade
+      onComplete();
     };
 
     const tick = (now: number) => {
       if (cancelled || bootFinished) return;
       const t = Math.min(1, (now - start) / duration);
-      const eased = t * 0.85 + (1 - Math.pow(1 - t, 2)) * 0.15;
+      // Ease-out so 100 arrives feeling snappy
+      const eased = 1 - Math.pow(1 - t, 2.4);
       const pct = Math.round(eased * 100);
       if (counterRef.current) {
         counterRef.current.textContent = String(pct).padStart(3, "0");
@@ -87,14 +89,12 @@ export default function Preloader({ onComplete }: PreloaderProps) {
       if (barRef.current) barRef.current.style.width = `${pct}%`;
 
       if (t < 1) raf = requestAnimationFrame(tick);
-      else complete();
+      else finish();
     };
 
     raf = requestAnimationFrame(tick);
-    timers.push(window.setTimeout(complete, duration + 350));
-
-    // Absolute failsafe — never leave the slate up more than ~2.8s
-    timers.push(window.setTimeout(complete, 2800));
+    // Failsafe — never stick past ~1.6s
+    timers.push(window.setTimeout(finish, 1600));
 
     return () => {
       cancelled = true;
@@ -105,7 +105,6 @@ export default function Preloader({ onComplete }: PreloaderProps) {
   }, [onComplete]);
 
   if (!visible && bootFinished) {
-    // Skip AnimatePresence entirely once done — no ghost overlay
     return null;
   }
 
@@ -117,13 +116,13 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           className="fixed inset-0 z-[100] flex flex-col bg-[#030305]"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.55, ease: [0.76, 0, 0.24, 1] }}
+          transition={{ duration: 0.32, ease: [0.76, 0, 0.24, 1] }}
         >
           <div
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                "radial-gradient(ellipse 55% 45% at 50% 45%, rgba(212,175,55,0.22), transparent 70%)",
+                "radial-gradient(ellipse 55% 45% at 50% 45%, rgba(212,175,55,0.18), transparent 70%)",
             }}
           />
 
@@ -140,28 +139,23 @@ export default function Preloader({ onComplete }: PreloaderProps) {
           </div>
 
           <div className="flex flex-1 flex-col items-center justify-center gap-8">
-            <motion.div
-              className="relative"
-              animate={{
-                filter: [
-                  "drop-shadow(0 0 20px rgba(212,175,55,0.3))",
-                  "drop-shadow(0 0 55px rgba(240,208,96,0.75))",
-                  "drop-shadow(0 0 20px rgba(212,175,55,0.3))",
-                ],
-              }}
-              transition={{
-                filter: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
-              }}
-            >
+            <div className="relative animate-pulse">
+              <div
+                className="pointer-events-none absolute inset-[-20%] rounded-full"
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(240,208,96,0.35), transparent 70%)",
+                }}
+              />
               <Image
                 src="/assets/logo.png"
                 alt="APEX RESISTANCE COALITION"
                 width={200}
                 height={200}
                 priority
-                className="h-40 w-40 object-contain sm:h-48 sm:w-48"
+                className="relative h-40 w-40 object-contain sm:h-48 sm:w-48"
               />
-            </motion.div>
+            </div>
 
             <div className="flex flex-col items-center gap-2">
               <h1 className="font-display text-center text-sm tracking-[0.4em] text-gold-bright sm:text-base">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { resolveAuthSecret, sanitizeAuthEnv } from "@/lib/auth-env";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,11 +22,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  sanitizeAuthEnv();
   let token = null;
   try {
     token = await getToken({
       req: request,
-      secret: process.env.AUTH_SECRET,
+      secret: resolveAuthSecret(),
     });
   } catch (err) {
     // Missing/invalid AUTH_SECRET must not 500 protected routes — send to login

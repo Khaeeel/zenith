@@ -3,6 +3,10 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import type { AppRole } from "@prisma/client";
 import { db } from "@/lib/db";
+import { resolveAuthSecret, sanitizeAuthEnv } from "@/lib/auth-env";
+
+// Must run before NextAuth reads AUTH_URL — invalid values cause TypeError: Invalid URL.
+const { secret: authSecret } = sanitizeAuthEnv();
 
 declare module "next-auth" {
   interface User {
@@ -35,13 +39,13 @@ declare module "@auth/core/jwt" {
 
 /**
  * Auth.js on Vercel:
- * - AUTH_SECRET is required (openssl rand -base64 32)
- * - Prefer AUTH_TRUST_HOST=true and omit AUTH_URL on Vercel,
- *   OR set AUTH_URL to the exact production origin (no path, no quotes)
+ * - AUTH_SECRET (or NEXTAUTH_SECRET) required
+ * - Prefer AUTH_TRUST_HOST=true and a valid AUTH_URL origin, OR omit AUTH_URL
+ *   (we fall back to https://$VERCEL_URL). Never set AUTH_URL to "" or quoted values.
  * - trustHost: true so reverse-proxy hosts are accepted
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET,
+  secret: authSecret ?? resolveAuthSecret(),
   trustHost: true,
   providers: [
     Credentials({
@@ -56,16 +60,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
 
-        const user = await db.user.findUnique({ where: { email } });
+        let user;
+        try {
+          user = await db.user.findUnique({ where: { email } });
+        } catch (err) {
+          console.error("[auth] database error during authorize:", err);
+          throw new Error("DATABASE_UNAVAILABLE");
+        }
         if (!user) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        await db.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        });
+        try {
+          await db.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          });
+        } catch (err) {
+          // Non-fatal — login can still proceed
+          console.error("[auth] failed to update lastLoginAt:", err);
+        }
 
         return {
           id: user.id,

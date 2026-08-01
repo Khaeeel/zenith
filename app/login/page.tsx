@@ -30,9 +30,7 @@ function LoginForm() {
         router.push(next);
         router.refresh();
       } catch {
-        setError(
-          "Sign-in failed. If this persists, AUTH_SECRET may be missing on the server.",
-        );
+        setError("Sign-in failed. Please try again.");
       }
     });
   }

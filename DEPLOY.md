@@ -4,11 +4,12 @@
 
 ```
 DATABASE_URL=              # Neon Postgres connection string
-AUTH_SECRET=               # openssl rand -base64 32  (REQUIRED)
+AUTH_SECRET=               # openssl rand -base64 32  (REQUIRED; NEXTAUTH_SECRET also OK)
 AUTH_TRUST_HOST=true       # REQUIRED on Vercel
-# AUTH_URL — either omit, OR set to exact production origin (no path, no quotes):
-# AUTH_URL=https://your-app.vercel.app
-# Do NOT use http://localhost:3000 on Vercel.
+# AUTH_URL — BEST: delete/omit on Vercel (app uses https://$VERCEL_URL).
+# Or set EXACTLY (paste without quotes in Vercel UI):
+#   https://zenith-leeq-sooty.vercel.app
+# NEVER: empty string, "", localhost, or a path like .../api/auth
 ```
 
 Optional (omit the key entirely if unused — Vercel rejects empty values):

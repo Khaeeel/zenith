@@ -9,7 +9,7 @@ async function main() {
 
   const fake = await db.member.findMany({
     where: { clanId: { not: zenith.id }, deletedAt: null },
-    select: { id: true, name: true },
+    select: { id: true, ign: true },
   });
 
   console.log(

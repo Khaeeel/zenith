@@ -41,23 +41,23 @@ export default function RoleDonut({ roles }: { roles: RoleMixItem[] }) {
   const size = 180;
   const cx = size / 2;
   const cy = size / 2;
-  const r = 68;
+  const radius = 68;
   const stroke = 18;
 
   let cursor = 0;
   const slices = roles
-    .filter((r) => r.count > 0)
-    .map((r) => {
-      const sweep = (r.count / total) * 360;
+    .filter((item) => item.count > 0)
+    .map((item) => {
+      const sweep = (item.count / total) * 360;
       const start = cursor;
       const end = cursor + sweep;
       cursor = end;
       // Full circle edge case
       const path =
         sweep >= 359.9
-          ? `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r}`
-          : arcPath(cx, cy, r, start, end);
-      return { ...r, path, color: COLORS[r.role] };
+          ? `M ${cx} ${cy - radius} A ${radius} ${radius} 0 1 1 ${cx - 0.01} ${cy - radius}`
+          : arcPath(cx, cy, radius, start, end);
+      return { ...item, path, color: COLORS[item.role] };
     });
 
   return (
@@ -73,7 +73,7 @@ export default function RoleDonut({ roles }: { roles: RoleMixItem[] }) {
           <circle
             cx={cx}
             cy={cy}
-            r={r}
+            r={radius}
             fill="none"
             stroke="rgba(212,175,55,0.12)"
             strokeWidth={stroke}

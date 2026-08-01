@@ -89,7 +89,7 @@ export default function AdminNav({
             Public site
           </Link>
           <ConfirmForm
-            action={async () => {
+            action={async (_formData) => {
               await logoutAction("/admin/login");
             }}
             title="Sign out"
@@ -114,7 +114,8 @@ export default function AdminNav({
           </div>
         ) : null}
         {NAV.map((n) => {
-          const on = matchActive(highlightPath, n.href, n.exact);
+          const exact = "exact" in n ? n.exact : undefined;
+          const on = matchActive(highlightPath, n.href, exact);
           return (
             <Link
               key={n.href}
@@ -130,7 +131,7 @@ export default function AdminNav({
                 ) {
                   return;
                 }
-                if (matchActive(pathname, n.href, n.exact)) return;
+                if (matchActive(pathname, n.href, exact)) return;
                 e.preventDefault();
                 setPendingHref(n.href);
                 router.push(n.href);

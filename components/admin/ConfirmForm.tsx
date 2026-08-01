@@ -19,8 +19,8 @@ type Feedback =
   | { kind: "error"; message: string };
 
 type ConfirmFormProps = {
-  // Supports plain, bound, and no-arg server actions
-  action: (formData?: FormData) => unknown;
+  /** Always invoked with FormData from the wrapped form */
+  action: (formData: FormData) => unknown;
   children: ReactNode;
   className?: string;
   /** Shown in the confirm dialog body */

@@ -7,6 +7,11 @@ function safeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
 }
 
+function blobToken() {
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  return token || undefined;
+}
+
 /** Persist an image to Blob (prod) or local public/uploads (dev). */
 export async function saveUploadedImage(file: File, uploadedBy: string) {
   const mimeType = file.type || "application/octet-stream";
@@ -16,11 +21,12 @@ export async function saveUploadedImage(file: File, uploadedBy: string) {
 
   const stamp = Date.now();
   const filename = `${stamp}-${safeFileName(file.name || "image")}`;
+  const token = blobToken();
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  if (token) {
     const blob = await put(`uploads/${filename}`, file, {
       access: "public",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token,
     });
     return db.mediaAsset.create({
       data: {
@@ -31,6 +37,13 @@ export async function saveUploadedImage(file: File, uploadedBy: string) {
         uploadedBy,
       },
     });
+  }
+
+  // Vercel serverless FS is read-only — never mkdir/write under /var/task.
+  if (process.env.VERCEL) {
+    throw new Error(
+      "Image uploads require BLOB_READ_WRITE_TOKEN. Create a Blob store in the Vercel project and set the token for Production (and Preview if needed).",
+    );
   }
 
   const dir = path.join(process.cwd(), "public", "uploads");
